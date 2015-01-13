@@ -12,7 +12,7 @@ PORT = 5222
 LISTEN_PORT = 5224
 
 class XMPPClient(Protocol):
-
+    debug = False
     INIT = '<stream:stream to="%s" xmlns="jabber:client" xmlns:stream="http://etherx.jabber.org/streams" version="1.0">'
     SSL_INIT = '<starttls xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>'
     SSL_REPLY = ("<proceed xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>", '<proceed xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>')
@@ -27,7 +27,8 @@ class XMPPClient(Protocol):
     def write(self, data):
         """Writes data to the XMPP server."""
         if self.transport and self.transport.TLS:
-            print 'SEND: %s' % (data, )
+            if self.debug:
+                print 'SEND: %s' % (data, )
             self.transport.write(data)
         else:
             self._buf += data
@@ -35,7 +36,8 @@ class XMPPClient(Protocol):
     def connectionMade(self):
         """Connected to XMPP server."""
         init = self.INIT % self.domain
-        print 'SEND: %s' % (init, )
+        if self.debug:
+            print 'SEND: %s' % (init, )
         self.transport.write(init)
         reactor.callLater(0.5, self._init2)
 
@@ -43,12 +45,14 @@ class XMPPClient(Protocol):
         self.transport.write(self.SSL_INIT)
 
     def dataReceived(self, data):
-        print 'RECV: %s' % (data, )
+        if self.debug:
+            print 'RECV: %s' % (data, )
         if self.transport.TLS:
             self.client.transport.write(data)
         elif data.endswith(self.SSL_REPLY[0]) or \
 	      data.endswith(self.SSL_REPLY[1]):
-            print 'starting TLS'
+            if self.debug:
+                print 'starting TLS'
 
             with open(self.pkey_file) as keyFile:
                     with open(self.cert_file) as certFile:
@@ -58,12 +62,14 @@ class XMPPClient(Protocol):
             ctx = clientCert.options()
             self.transport.startTLS(ctx)
             if self._buf:
-                print 'SEND: %s' % (self._buf, )
+                if self.debug:
+                    print 'SEND: %s' % (self._buf, )
                 self.transport.write(self._buf)
                 self._buf = None
 
 
 class BridgeProtocol(Protocol):
+    debug = False
 
     def __init__(self, addr, domain, host, port, cert_file, pkey_file):
         self.addr = addr
@@ -89,8 +95,9 @@ class BridgeProtocol(Protocol):
             self.transport.loseConnection()
 
     def connectionMade(self):
-        print 'got connection from %s' % (self.addr, )
-        print 'connecting to %s:%d' % (self.host, self.port)
+        if self.debug:
+            print 'got connection from %s' % (self.addr, )
+            print 'connecting to %s:%d' % (self.host, self.port)
         point = TCP4ClientEndpoint(reactor, self.host, self.port)
         self.client = XMPPClient(self, self.domain, self.cert_file, self.pkey_file)
         d = connectProtocol(point, self.client)
@@ -101,6 +108,7 @@ class BridgeProtocol(Protocol):
 
 
 class BridgeFactory(Factory):
+    debug = False
 
     def __init__(self, domain, host, port, cert_file, pkey_file):
         self.domain = domain
@@ -131,6 +139,8 @@ if __name__ == '__main__':
         port = int(port)
     else:
         host, port = args.address, PORT
+
+    BridgeFactory.debug = BridgeProtocol.debug = XMPPClient.debug = args.debug
 
     print 'listening on port %d, forwarding to %s:%d' % (int(args.port), host, port)
     reactor.listenTCP(int(args.port), BridgeFactory(args.domain, host, port, args.certificate, args.privatekey))
