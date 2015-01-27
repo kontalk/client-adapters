@@ -39,39 +39,43 @@ static gboolean
 jabber_presence_received(PurpleConnection *pc, const char *type,
                          const char *from, xmlnode *presence)
 {
-        //purple_debug_misc("kontalk", "jabber presence (type=%s, from=%s) %p\n",
-        //    type ? type : "(null)", from ? from : "(null)", presence);
+    /*
+     * TODO this should probably be enabled only for Kontalk accounts,
+     * but for that to work we need a protocol plugin.
+     */
+    //purple_debug_misc("kontalk", "jabber presence (type=%s, from=%s) %p\n",
+    //    type ? type : "(null)", from ? from : "(null)", presence);
 
-        if (from != NULL) {
-            // store fingerprint regardless of presence type
-            char* fingerprint = NULL;
-            xmlnode *pubkey = xmlnode_get_child_with_namespace(presence, PUBKEY_ELEMENT, PUBKEY_NAMESPACE);
-            if (pubkey != NULL) {
-                xmlnode *fpr_node = xmlnode_get_child(pubkey, "print");
-                if (fpr_node != NULL) {
-                    fingerprint = xmlnode_get_data(fpr_node);
-                    if (fingerprint != NULL && *(g_strchomp(fingerprint)) != '\0') {
-                        purple_debug_misc("kontalk", "public key fingerprint for %s: %s\n",
-                            from, fingerprint);
+    if (from != NULL) {
+        // store fingerprint regardless of presence type
+        char* fingerprint = NULL;
+        xmlnode *pubkey = xmlnode_get_child_with_namespace(presence, PUBKEY_ELEMENT, PUBKEY_NAMESPACE);
+        if (pubkey != NULL) {
+            xmlnode *fpr_node = xmlnode_get_child(pubkey, "print");
+            if (fpr_node != NULL) {
+                fingerprint = xmlnode_get_data(fpr_node);
+                if (fingerprint != NULL && *(g_strchomp(fingerprint)) != '\0') {
+                    purple_debug_misc("kontalk", "public key fingerprint for %s: %s\n",
+                        from, fingerprint);
 
-                        // retrieve buddy from name
-                        PurpleBuddy *buddy = purple_find_buddy(pc->account, from);
-                        if (buddy != NULL) {
-                            // store fingerprint
-                            purple_blist_node_set_string(&buddy->node, "fingerprint", fingerprint);
-                        }
-                        else {
-                            purple_debug_misc("kontalk", "buddy %s not found!\n", from);
-                        }
-
-                        g_free((gpointer) fingerprint);
+                    // retrieve buddy from name
+                    PurpleBuddy *buddy = purple_find_buddy(pc->account, from);
+                    if (buddy != NULL) {
+                        // store fingerprint
+                        purple_blist_node_set_string(&buddy->node, "fingerprint", fingerprint);
                     }
+                    else {
+                        purple_debug_misc("kontalk", "buddy %s not found!\n", from);
+                    }
+
+                    g_free((gpointer) fingerprint);
                 }
             }
         }
+    }
 
-        // continue with processing
-        return FALSE;
+    // continue with processing
+    return FALSE;
 }
 
 static gboolean
@@ -83,7 +87,7 @@ plugin_load(PurplePlugin *plugin) {
         return FALSE;
     }
 
-    void *jabber_handle   = purple_plugins_find_with_id("prpl-jabber");
+    void *jabber_handle = purple_plugins_find_with_id("prpl-jabber");
 
     if (jabber_handle) {
         purple_signal_connect(jabber_handle, "jabber-receiving-presence",
