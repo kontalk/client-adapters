@@ -3,16 +3,13 @@
 #include <glib.h>
 #include <glib/gi18n.h>
 
-#include <gpgme.h>
-
 #include <notify.h>
 #include <gtkblist.h>
 #include <gtkplugin.h>
 #include <debug.h>
 #include <version.h>
 
-
-#define GPGME_REQUIRED_VERSION  "1.4.3"
+#include "gpg.h"
 
 #define PUBKEY_ELEMENT          "pubkey"
 #define PUBKEY_NAMESPACE        "urn:xmpp:pubkey:2"
@@ -33,6 +30,38 @@ append_to_tooltip(PurpleBlistNode *node, GString *text, gboolean full)
             g_free(esc);
         }
     }
+}
+
+static gboolean
+jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
+                   const char *from, xmlnode *iq)
+{
+        purple_debug_misc("kontalk", "jabber IQ (type=%s, id=%s, from=%s) %p\n",
+                          type, id, from ? from : "(null)", iq);
+
+        xmlnode *pubkey;
+        if (from != NULL && !g_strcmp0(type, "result") &&
+            (pubkey = xmlnode_get_child_with_namespace(iq, PUBKEY_ELEMENT, PUBKEY_NAMESPACE)) != NULL) {
+
+            // just import the key for now
+            char* keydata = xmlnode_get_data(pubkey);
+            if (keydata != NULL && *(g_strchomp(keydata)) != '\0') {
+                size_t len;
+                g_base64_decode_inplace(keydata, &len);
+
+                if (len > 0) {
+                    const char* fingerprint = gpg_import_key((void*) keydata, len);
+                    purple_debug_misc("kontalk", "public key for %s imported (fingerprint %s)\n",
+                        from, fingerprint ? fingerprint : "(null)");
+
+                    // packet was processed
+                    return TRUE;
+                }
+            }
+        }
+
+        // continue processing
+        return FALSE;
 }
 
 static gboolean
@@ -65,7 +94,7 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
                         purple_blist_node_set_string(&buddy->node, "fingerprint", fingerprint);
                     }
                     else {
-                        purple_debug_misc("kontalk", "buddy %s not found!\n", from);
+                        purple_debug_warning("kontalk", "buddy %s not found!\n", from);
                     }
 
                     g_free((gpointer) fingerprint);
@@ -74,14 +103,16 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
         }
     }
 
-    // continue with processing
+    // continue processing
     return FALSE;
 }
 
 static gboolean
-plugin_load(PurplePlugin *plugin) {
+plugin_load(PurplePlugin *plugin)
+{
     // init gpgme
-    if (!gpgme_check_version(GPGME_REQUIRED_VERSION)) {
+    if (!gpg_init()) {
+        // TODO i18n
         purple_notify_message(plugin, PURPLE_NOTIFY_MSG_INFO, "Kontalk",
                     "GPGME >= " GPGME_REQUIRED_VERSION " is required.", NULL, NULL, NULL);
         return FALSE;
@@ -90,8 +121,11 @@ plugin_load(PurplePlugin *plugin) {
     void *jabber_handle = purple_plugins_find_with_id("prpl-jabber");
 
     if (jabber_handle) {
+        // init signals
         purple_signal_connect(jabber_handle, "jabber-receiving-presence",
             plugin, PURPLE_CALLBACK(jabber_presence_received), NULL);
+        purple_signal_connect(jabber_handle, "jabber-receiving-iq",
+            plugin, PURPLE_CALLBACK(jabber_iq_received), NULL);
 
         purple_signal_connect(pidgin_blist_get_handle(), "drawing-tooltip",
             plugin, PURPLE_CALLBACK(append_to_tooltip), NULL);
@@ -101,6 +135,16 @@ plugin_load(PurplePlugin *plugin) {
 
     return FALSE;
 }
+
+static gboolean
+plugin_unload(PurplePlugin *plugin)
+{
+    purple_signals_disconnect_by_handle(plugin);
+    gpg_free();
+
+    return TRUE;
+}
+
 
 static PurplePluginInfo info = {
     PURPLE_PLUGIN_MAGIC,
@@ -123,7 +167,7 @@ static PurplePluginInfo info = {
     "http://www.kontalk.org",
 
     plugin_load,
-    NULL,
+    plugin_unload,
     NULL,
 
     NULL,
