@@ -3,12 +3,16 @@
 #include <glib.h>
 #include <glib/gi18n.h>
 
+#include <gpgme.h>
+
 #include <notify.h>
 #include <gtkblist.h>
 #include <gtkplugin.h>
 #include <debug.h>
 #include <version.h>
 
+
+#define GPGME_REQUIRED_VERSION  "1.4.3"
 
 #define PUBKEY_ELEMENT          "pubkey"
 #define PUBKEY_NAMESPACE        "urn:xmpp:pubkey:2"
@@ -72,8 +76,12 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
 
 static gboolean
 plugin_load(PurplePlugin *plugin) {
-    /*purple_notify_message(plugin, PURPLE_NOTIFY_MSG_INFO, "Kontalk",
-                        "This is the Kontalk plugin :)", NULL, NULL, NULL);*/
+    // init gpgme
+    if (!gpgme_check_version(GPGME_REQUIRED_VERSION)) {
+        purple_notify_message(plugin, PURPLE_NOTIFY_MSG_INFO, "Kontalk",
+                    "GPGME >= " GPGME_REQUIRED_VERSION " is required.", NULL, NULL, NULL);
+        return FALSE;
+    }
 
     void *jabber_handle   = purple_plugins_find_with_id("prpl-jabber");
 

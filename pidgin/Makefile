@@ -4,8 +4,8 @@ BIN = kontalk.so
 OBJS = kontalk.o
 CC = gcc -c
 LD = gcc
-CFLAGS = -Wall `pkg-config --cflags pidgin`
-LDFLAGS = -shared `pkg-config --libs pidgin`
+CFLAGS = -Wall -D_FILE_OFFSET_BITS=64 `pkg-config --cflags pidgin` `gpgme-config --cflags`
+LDFLAGS = -shared `pkg-config --libs pidgin` `gpgme-config --libs`
 
 
 all: $(BIN)
