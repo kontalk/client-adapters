@@ -179,7 +179,7 @@ plugin_load(PurplePlugin *plugin)
     // init gpgme
     if (!gpg_init()) {
         // TODO i18n
-        purple_notify_message(plugin, PURPLE_NOTIFY_MSG_INFO, "Kontalk",
+        purple_notify_message(plugin, PURPLE_NOTIFY_MSG_ERROR, "Kontalk",
                     "GPGME >= " GPGME_REQUIRED_VERSION " is required.", NULL, NULL, NULL);
         return FALSE;
     }
