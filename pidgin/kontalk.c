@@ -15,6 +15,55 @@
 #define PUBKEY_NAMESPACE        "urn:xmpp:pubkey:2"
 
 
+static char *
+jabber_get_bare_jid(const char *in)
+{
+    if (in != NULL) {
+        char *out = g_strdup(in);
+        char *sep = strstr(out, "/");
+        if (sep != NULL) {
+            *sep = '\0';
+        }
+        return out;
+    }
+
+    return NULL;
+}
+
+static char*
+generate_next_id()
+{
+    static guint32 index = 0;
+
+    if (index == 0) {
+        do {
+            index = g_random_int();
+        } while (index == 0);
+    }
+
+    return g_strdup_printf("purpledisco%x", index++);
+}
+
+static void
+request_public_key(PurpleConnection *pc, const char *jid)
+{
+    char *id = generate_next_id();
+
+    xmlnode *iq = xmlnode_new("iq");
+    xmlnode_set_attrib(iq, "type", "get");
+    xmlnode_set_attrib(iq, "to", jid);
+    xmlnode_set_attrib(iq, "id", id);
+    g_free(id);
+
+    xmlnode *pubkey = xmlnode_new_child(iq, PUBKEY_ELEMENT);
+    xmlnode_set_namespace(pubkey, PUBKEY_NAMESPACE);
+
+    purple_signal_emit(purple_connection_get_prpl(pc), "jabber-sending-xmlnode",
+        pc, &iq);
+
+    xmlnode_free(iq);
+}
+
 static void
 append_to_tooltip(PurpleBlistNode *node, GString *text, gboolean full)
 {
@@ -36,8 +85,8 @@ static gboolean
 jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
                    const char *from, xmlnode *iq)
 {
-        purple_debug_misc("kontalk", "jabber IQ (type=%s, id=%s, from=%s) %p\n",
-                          type, id, from ? from : "(null)", iq);
+        //purple_debug_misc("kontalk", "jabber IQ (type=%s, id=%s, from=%s) %p\n",
+        //    type, id, from ? from : "(null)", iq);
 
         xmlnode *pubkey;
         if (from != NULL && !g_strcmp0(type, "result") &&
@@ -51,8 +100,14 @@ jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
 
                 if (len > 0) {
                     const char* fingerprint = gpg_import_key((void*) keydata, len);
-                    purple_debug_misc("kontalk", "public key for %s imported (fingerprint %s)\n",
-                        from, fingerprint ? fingerprint : "(null)");
+                    if (fingerprint == NULL) {
+                        purple_debug_warning("kontalk", "error importing public key for %s\n",
+                            from);
+                    }
+                    else {
+                        purple_debug_misc("kontalk", "public key for %s imported (fingerprint %s)\n",
+                            from, fingerprint ? fingerprint : "(null)");
+                    }
 
                     // packet was processed
                     return TRUE;
@@ -90,6 +145,17 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
                     // retrieve buddy from name
                     PurpleBuddy *buddy = purple_find_buddy(pc->account, from);
                     if (buddy != NULL) {
+                        // is the fingerprint changed?
+                        const char* old_fingerprint = purple_blist_node_get_string
+                            (&buddy->node, "fingerprint");
+
+                        if (g_strcmp0(old_fingerprint, fingerprint)) {
+                            // fingerprint changed, request key
+                            char* jid = jabber_get_bare_jid(from);
+                            request_public_key(pc, jid);
+                            g_free(jid);
+                        }
+
                         // store fingerprint
                         purple_blist_node_set_string(&buddy->node, "fingerprint", fingerprint);
                     }

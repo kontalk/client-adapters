@@ -11,7 +11,8 @@
 static gpgme_ctx_t ctx;
 
 
-gboolean gpg_init()
+gboolean
+gpg_init()
 {
     gboolean check = gpgme_check_version(GPGME_REQUIRED_VERSION) != NULL;
     if (check) {
@@ -25,28 +26,29 @@ gboolean gpg_init()
     return check;
 }
 
-void gpg_free()
+void
+gpg_free()
 {
     gpgme_release(ctx);
 }
 
-const char* gpg_import_key(void* keydata, size_t size)
+const char *
+gpg_import_key(void* keydata, size_t size)
 {
     gpgme_data_t dh;
     gpgme_data_new_from_mem(&dh, keydata, size, 0);
 
     gpgme_error_t err = gpgme_op_import(ctx, dh);
+    gpgme_data_release(dh);
     if (err) {
         purple_debug_error("kontalk", "cannot import key!\n");
-        goto end;
+        return NULL;
     }
 
     gpgme_import_result_t result = gpgme_op_import_result(ctx);
-    if (result != NULL && result->imported > 0) {
+    if (result != NULL && (result->imported > 0 || result->unchanged > 0)) {
         return result->imports->fpr;
     }
 
-end:
-    gpgme_data_release(dh);
     return NULL;
 }
