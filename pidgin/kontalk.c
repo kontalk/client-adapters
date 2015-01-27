@@ -9,10 +9,8 @@
 #include <debug.h>
 #include <version.h>
 
+#include "kontalk.h"
 #include "gpg.h"
-
-#define PUBKEY_ELEMENT          "pubkey"
-#define PUBKEY_NAMESPACE        "urn:xmpp:pubkey:2"
 
 
 static char *
@@ -101,11 +99,11 @@ jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
                 if (len > 0) {
                     const char* fingerprint = gpg_import_key((void*) keydata, len);
                     if (fingerprint == NULL) {
-                        purple_debug_warning("kontalk", "error importing public key for %s\n",
+                        purple_debug_warning(PACKAGE_NAME, "error importing public key for %s\n",
                             from);
                     }
                     else {
-                        purple_debug_misc("kontalk", "public key for %s imported (fingerprint %s)\n",
+                        purple_debug_misc(PACKAGE_NAME, "public key for %s imported (fingerprint %s)\n",
                             from, fingerprint ? fingerprint : "(null)");
                     }
 
@@ -127,7 +125,7 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
      * TODO this should probably be enabled only for Kontalk accounts,
      * but for that to work we need a protocol plugin.
      */
-    //purple_debug_misc("kontalk", "jabber presence (type=%s, from=%s) %p\n",
+    //purple_debug_misc(PACKAGE_NAME, "jabber presence (type=%s, from=%s) %p\n",
     //    type ? type : "(null)", from ? from : "(null)", presence);
 
     if (from != NULL) {
@@ -139,7 +137,7 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
             if (fpr_node != NULL) {
                 fingerprint = xmlnode_get_data(fpr_node);
                 if (fingerprint != NULL && *(g_strchomp(fingerprint)) != '\0') {
-                    purple_debug_misc("kontalk", "public key fingerprint for %s: %s\n",
+                    purple_debug_misc(PACKAGE_NAME, "public key fingerprint for %s: %s\n",
                         from, fingerprint);
 
                     // retrieve buddy from name
@@ -160,7 +158,7 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
                         purple_blist_node_set_string(&buddy->node, "fingerprint", fingerprint);
                     }
                     else {
-                        purple_debug_warning("kontalk", "buddy %s not found!\n", from);
+                        purple_debug_warning(PACKAGE_NAME, "buddy %s not found!\n", from);
                     }
 
                     g_free((gpointer) fingerprint);
@@ -178,9 +176,9 @@ plugin_load(PurplePlugin *plugin)
 {
     // init gpgme
     if (!gpg_init()) {
-        // TODO i18n
-        purple_notify_message(plugin, PURPLE_NOTIFY_MSG_ERROR, "Kontalk",
-                    "GPGME >= " GPGME_REQUIRED_VERSION " is required.", NULL, NULL, NULL);
+        purple_notify_message(plugin, PURPLE_NOTIFY_MSG_ERROR, PACKAGE_TITLE,
+            // TODO i18n
+            "GPGME >= " GPGME_REQUIRED_VERSION " is required.", NULL, NULL, NULL);
         return FALSE;
     }
 
@@ -196,6 +194,11 @@ plugin_load(PurplePlugin *plugin)
 
         purple_signal_connect(pidgin_blist_get_handle(), "drawing-tooltip",
             plugin, PURPLE_CALLBACK(append_to_tooltip), NULL);
+
+        // TODO warn once
+        purple_notify_message(plugin, PURPLE_NOTIFY_MSG_INFO, PACKAGE_TITLE,
+            // TODO i18n
+            "You need to use the SSL tunnel bridge!", NULL, NULL, NULL);
 
         return TRUE;
     }
@@ -223,15 +226,14 @@ static PurplePluginInfo info = {
     NULL,
     PURPLE_PRIORITY_DEFAULT,
 
-    "gtk-kontalk",
-    "Kontalk integration",
-    "0.1",
+    PLUGIN_ID,
+    NULL,
+    PACKAGE_VERSION,
 
-    "Provides support for features used by a Kontalk server.",
-    "Provides support for encryption, key management, media exchange,"
-        " registration and authentication for a Kontalk server",
-    "Kontalk devteam <devteam@kontalk.org>",
-    "http://www.kontalk.org/",
+    NULL,
+    NULL,
+    PLUGIN_AUTHOR,
+    PLUGIN_WEBSITE,
 
     plugin_load,
     plugin_unload,
@@ -250,6 +252,15 @@ static PurplePluginInfo info = {
 static void
 init_plugin(PurplePlugin *plugin)
 {
+#ifdef ENABLE_NLS
+    bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
+    bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
+#endif /* ENABLE_NLS */
+
+    info.name = _("Kontalk integration");
+    info.summary = _("Provides support for features used by a Kontalk server.");
+    info.description = _("Provides support for encryption, key management, media exchange,"
+        " registration and authentication for a Kontalk server");
 }
 
 PURPLE_INIT_PLUGIN(kontalk, init_plugin, info)
