@@ -190,6 +190,7 @@ plugin_load(PurplePlugin *plugin)
         // init signals
         purple_signal_connect(jabber_handle, "jabber-receiving-presence",
             plugin, PURPLE_CALLBACK(jabber_presence_received), NULL);
+        // TODO convert to jabber-register-namespace-watcher?
         purple_signal_connect(jabber_handle, "jabber-receiving-iq",
             plugin, PURPLE_CALLBACK(jabber_iq_received), NULL);
 
@@ -230,7 +231,7 @@ static PurplePluginInfo info = {
     "Provides support for encryption, key management, media exchange,"
         " registration and authentication for a Kontalk server",
     "Kontalk devteam <devteam@kontalk.org>",
-    "http://www.kontalk.org",
+    "http://www.kontalk.org/",
 
     plugin_load,
     plugin_unload,
