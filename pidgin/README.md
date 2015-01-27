@@ -14,7 +14,7 @@ This is a plugin for Pidgin. It provides support for:
 ## Build
 
 The command below will install the plugin in your home directory under
-`~/.purple/plugins`. You'll need Pidgin development headers to compile it.
+`~/.purple/plugins`. You'll need Pidgin and GPGME development headers to compile it.
 
 ```
 make install
