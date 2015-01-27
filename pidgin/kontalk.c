@@ -87,7 +87,7 @@ xmlnode_replace_data(xmlnode *node, const char *text, size_t len)
     for(c = node->child; c; c = c->next) {
         if(c->type == XMLNODE_TYPE_DATA) {
             g_free(c->data);
-            c->data = (char *) text;
+            c->data = g_memdup(text, len);
             c->data_sz = len;
             break;
         }
@@ -154,13 +154,12 @@ jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
                 // decrypt!
                 char *text = (char *) gpg_decrypt((void *) data, len, &out_len);
                 if (text != NULL && (body = xmlnode_get_child(message, "body")) != NULL) {
-                    purple_debug_misc(PACKAGE_NAME, "replacing message body \"%s\" with:\n%s",
-                        body->data, text);
-
                     // inject into body
                     // WARNING accessing xmlnode internals
                     xmlnode_replace_data(body, text, out_len);
                 }
+
+                g_free(text);
             }
         }
 
