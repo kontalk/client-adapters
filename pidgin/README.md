@@ -1,7 +1,7 @@
 Pidgin plugin
 =============
 
-> ### NOTE: this plugin doesn't contain any useful features yet!
+> ### NOTE: this plugin doesn't have any useful features yet!
 
 This is a plugin for Pidgin. It provides support for:
 
