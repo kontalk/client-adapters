@@ -79,13 +79,25 @@ append_to_tooltip(PurpleBlistNode *node, GString *text, gboolean full)
     }
 }
 
+static void
+xmlnode_replace_data(xmlnode *node, const char *text, size_t len)
+{
+    xmlnode *c;
+
+    for(c = node->child; c; c = c->next) {
+        if(c->type == XMLNODE_TYPE_DATA) {
+            g_free(c->data);
+            c->data = (char *) text;
+            c->data_sz = len;
+            break;
+        }
+    }
+}
+
 static gboolean
 jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
                    const char *from, xmlnode *iq)
 {
-        //purple_debug_misc("kontalk", "jabber IQ (type=%s, id=%s, from=%s) %p\n",
-        //    type, id, from ? from : "(null)", iq);
-
         xmlnode *pubkey;
         if (from != NULL && !g_strcmp0(type, "result") &&
             (pubkey = xmlnode_get_child_with_namespace(iq, PUBKEY_ELEMENT, PUBKEY_NAMESPACE)) != NULL) {
@@ -106,11 +118,13 @@ jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
                         purple_debug_misc(PACKAGE_NAME, "public key for %s imported (fingerprint %s)\n",
                             from, fingerprint ? fingerprint : "(null)");
                     }
-
-                    // packet was processed
-                    return TRUE;
                 }
             }
+
+            g_free((gpointer) keydata);
+
+            // packet was processed
+            return TRUE;
         }
 
         // continue processing
@@ -118,16 +132,49 @@ jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
 }
 
 static gboolean
+jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
+                        const char *from, const char *to, xmlnode *message)
+{
+    purple_debug_misc(PACKAGE_NAME, "jabber message (type=%s, id=%s, "
+        "from=%s to=%s) %p\n",
+        type ? type : "(null)", id ? id : "(null)",
+        from ? from : "(null)", to ? to : "(null)", message);
+
+    xmlnode *e2e, *body;
+    if (from != NULL && !g_strcmp0(type, "chat") &&
+        (e2e = xmlnode_get_child_with_namespace(message, E2E_ELEMENT, E2E_NAMESPACE)) != NULL) {
+
+        // extract and decode e2e content
+        char *data = xmlnode_get_data(e2e);
+        if (data != NULL && *(g_strchomp(data)) != '\0') {
+            size_t len, out_len;
+            g_base64_decode_inplace(data, &len);
+
+            if (len > 0) {
+                // decrypt!
+                char *text = (char *) gpg_decrypt((void *) data, len, &out_len);
+                if (text != NULL && (body = xmlnode_get_child(message, "body")) != NULL) {
+                    purple_debug_misc(PACKAGE_NAME, "replacing message body \"%s\" with:\n%s",
+                        body->data, text);
+
+                    // inject into body
+                    // WARNING accessing xmlnode internals
+                    xmlnode_replace_data(body, text, out_len);
+                }
+            }
+        }
+
+        g_free(data);
+    }
+
+    // continue processing
+    return FALSE;
+}
+
+static gboolean
 jabber_presence_received(PurpleConnection *pc, const char *type,
                          const char *from, xmlnode *presence)
 {
-    /*
-     * TODO this should probably be enabled only for Kontalk accounts,
-     * but for that to work we need a protocol plugin.
-     */
-    //purple_debug_misc(PACKAGE_NAME, "jabber presence (type=%s, from=%s) %p\n",
-    //    type ? type : "(null)", from ? from : "(null)", presence);
-
     if (from != NULL) {
         // store fingerprint regardless of presence type
         char* fingerprint = NULL;
@@ -161,8 +208,9 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
                         purple_debug_warning(PACKAGE_NAME, "buddy %s not found!\n", from);
                     }
 
-                    g_free((gpointer) fingerprint);
                 }
+
+                g_free((gpointer) fingerprint);
             }
         }
     }
@@ -191,6 +239,8 @@ plugin_load(PurplePlugin *plugin)
         // TODO convert to jabber-register-namespace-watcher?
         purple_signal_connect(jabber_handle, "jabber-receiving-iq",
             plugin, PURPLE_CALLBACK(jabber_iq_received), NULL);
+        purple_signal_connect(jabber_handle, "jabber-receiving-message",
+            plugin, PURPLE_CALLBACK(jabber_message_received), NULL);
 
         purple_signal_connect(pidgin_blist_get_handle(), "drawing-tooltip",
             plugin, PURPLE_CALLBACK(append_to_tooltip), NULL);

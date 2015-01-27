@@ -8,6 +8,8 @@
 gboolean gpg_init();
 void gpg_free();
 
-const char* gpg_import_key(void* keydata, size_t size);
+const char *gpg_decrypt(void *data, size_t size, size_t *out_size);
+
+const char *gpg_import_key(void *keydata, size_t size);
 
 #endif  /* _GPG_H_ */
