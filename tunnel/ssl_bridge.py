@@ -91,7 +91,8 @@ class BridgeProtocol(Protocol):
 
         self.client.write(data)
         if '</stream:stream>' in data:
-            self.client.transport.loseConnection()
+            if self.client.transport:
+                self.client.transport.loseConnection()
             self.transport.loseConnection()
 
     def connectionMade(self):
