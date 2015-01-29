@@ -3,6 +3,7 @@
 # This code is in the public domain
 
 import argparse
+import re
 
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
@@ -15,7 +16,7 @@ class XMPPClient(Protocol):
     debug = False
     INIT = '<stream:stream to="%s" xmlns="jabber:client" xmlns:stream="http://etherx.jabber.org/streams" version="1.0">'
     SSL_INIT = '<starttls xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>'
-    SSL_REPLY = ("<proceed xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>", '<proceed xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>')
+    SSL_REPLY = re.compile("<proceed(\\s)+xmlns(\\s)*=(\\s)*['\"]urn:ietf:params:xml:ns:xmpp-tls['\"](\\s)*/>$")
 
     def __init__(self, client, domain, cert_file, pkey_file):
         self.client = client
@@ -49,15 +50,14 @@ class XMPPClient(Protocol):
             print 'RECV: %s' % (data, )
         if self.transport.TLS:
             self.client.transport.write(data)
-        elif data.endswith(self.SSL_REPLY[0]) or \
-	      data.endswith(self.SSL_REPLY[1]):
+        elif self.SSL_REPLY.search(data):
             if self.debug:
                 print 'starting TLS'
 
             with open(self.pkey_file) as keyFile:
-                    with open(self.cert_file) as certFile:
-                        clientCert = ssl.PrivateCertificate.loadPEM(
-                            keyFile.read() + certFile.read())
+                with open(self.cert_file) as certFile:
+                    clientCert = ssl.PrivateCertificate.loadPEM(
+                         keyFile.read() + certFile.read())
 
             ctx = clientCert.options()
             self.transport.startTLS(ctx)
