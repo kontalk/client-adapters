@@ -11,6 +11,7 @@
 
 #include "kontalk.h"
 #include "gpg.h"
+#include "cpim.h"
 
 
 static char *
@@ -154,9 +155,28 @@ jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
                 // decrypt!
                 char *text = (char *) gpg_decrypt((void *) data, len, &out_len);
                 if (text != NULL && (body = xmlnode_get_child(message, "body")) != NULL) {
+                    char *body_text;
+                    size_t body_len;
+
+                    // parse Message/CPIM
+                    cpim_message *msg = cpim_parse_message(text, out_len);
+                    if (msg != NULL) {
+                        // TODO check security status
+                        body_text = msg->body;
+                        body_len = strlen(msg->body);
+                    }
+                    else {
+                        body_text = text;
+                        body_len = out_len;
+                    }
+
                     // inject into body
+
                     // WARNING accessing xmlnode internals
-                    xmlnode_replace_data(body, text, out_len);
+                    xmlnode_replace_data(body, body_text, body_len);
+                    if (msg != NULL) {
+                        cpim_message_free(msg);
+                    }
                 }
 
                 g_free(text);

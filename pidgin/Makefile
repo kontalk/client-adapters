@@ -7,7 +7,8 @@ PREFIX = "/usr"
 LOCALEDIR = "$(PREFIX)/locale"
 
 BIN = kontalk.so
-OBJS = gpg.o kontalk.o
+OBJS = gpg.o cpim.o kontalk.o
+PKGCONFIG_DEPS = pidgin
 CC = gcc -c
 LD = gcc
 CFLAGS = -Wall -fPIC \
@@ -17,9 +18,9 @@ CFLAGS = -Wall -fPIC \
 	-DGETTEXT_PACKAGE=\"$(PACKAGE_NAME)\" \
 	-DLOCALEDIR=\"$(LOCALEDIR)\" \
 	-D_FILE_OFFSET_BITS=64 \
-	`pkg-config --cflags pidgin` \
+	`pkg-config --cflags $(PKGCONFIG_DEPS)` \
 	`gpgme-config --cflags`
-LDFLAGS = -shared -fPIC `pkg-config --libs pidgin` `gpgme-config --libs`
+LDFLAGS = -shared -fPIC `pkg-config --libs $(PKGCONFIG_DEPS)` `gpgme-config --libs`
 
 
 all: $(BIN)

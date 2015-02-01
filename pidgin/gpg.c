@@ -1,12 +1,12 @@
 
-#include "gpg.h"
-#include "kontalk.h"
-
 #include <string.h>
 
 #include <gpgme.h>
 
 #include <debug.h>
+
+#include "gpg.h"
+#include "kontalk.h"
 
 
 static gpgme_ctx_t ctx;
