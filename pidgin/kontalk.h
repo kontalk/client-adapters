@@ -14,4 +14,8 @@
 #define E2E_ELEMENT             "e2e"
 #define E2E_NAMESPACE           "urn:ietf:params:xml:ns:xmpp-e2e"
 
+#define XMPP_CONTENT_TYPE       "application/xmpp+xml"
+#define XMPP_ELEMENT            "xmpp"
+#define XMPP_NAMESPACE          "jabber:client"
+
 #endif  /* _KONTALK_H_ */

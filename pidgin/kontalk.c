@@ -15,6 +15,46 @@
 
 
 static char *
+extract_oob_url(xmlnode *message)
+{
+    xmlnode *oob = xmlnode_get_child_with_namespace(message, "x", "jabber:x:oob");
+    if (oob != NULL) {
+        xmlnode *url = xmlnode_get_child(oob, "url");
+        if (url != NULL) {
+            return xmlnode_get_data(url);
+        }
+    }
+
+    return NULL;
+}
+
+static xmlnode *
+parse_xmpp_stanza(const char *text, gssize size)
+{
+    xmlnode *child = NULL;
+    xmlnode *doc = xmlnode_from_str(text, size);
+    if (doc != NULL &&
+        !strcmp(doc->name, XMPP_ELEMENT) &&
+        !strcmp(xmlnode_get_namespace(doc), XMPP_NAMESPACE)) {
+
+        child = doc->child;
+        while (child != NULL) {
+            if (child->name != NULL) {
+                child = xmlnode_copy(child);
+                break;
+            }
+            child = child->next;
+        }
+    }
+
+    if (doc != NULL) {
+        xmlnode_free(doc);
+    }
+
+    return child;
+}
+
+static char *
 jabber_get_bare_jid(const char *in)
 {
     if (in != NULL) {
@@ -99,48 +139,43 @@ static gboolean
 jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
                    const char *from, xmlnode *iq)
 {
-        xmlnode *pubkey;
-        if (from != NULL && !g_strcmp0(type, "result") &&
-            (pubkey = xmlnode_get_child_with_namespace(iq, PUBKEY_ELEMENT, PUBKEY_NAMESPACE)) != NULL) {
+    xmlnode *pubkey;
+    if (from != NULL && !g_strcmp0(type, "result") &&
+        (pubkey = xmlnode_get_child_with_namespace(iq, PUBKEY_ELEMENT, PUBKEY_NAMESPACE)) != NULL) {
 
-            // just import the key for now
-            char* keydata = xmlnode_get_data(pubkey);
-            if (keydata != NULL && *(g_strchomp(keydata)) != '\0') {
-                size_t len;
-                g_base64_decode_inplace(keydata, &len);
+        // just import the key for now
+        char* keydata = xmlnode_get_data(pubkey);
+        if (keydata != NULL && *(g_strchomp(keydata)) != '\0') {
+            size_t len;
+            g_base64_decode_inplace(keydata, &len);
 
-                if (len > 0) {
-                    const char* fingerprint = gpg_import_key((void*) keydata, len);
-                    if (fingerprint == NULL) {
-                        purple_debug_warning(PACKAGE_NAME, "error importing public key for %s\n",
-                            from);
-                    }
-                    else {
-                        purple_debug_misc(PACKAGE_NAME, "public key for %s imported (fingerprint %s)\n",
-                            from, fingerprint ? fingerprint : "(null)");
-                    }
+            if (len > 0) {
+                const char* fingerprint = gpg_import_key((void*) keydata, len);
+                if (fingerprint == NULL) {
+                    purple_debug_warning(PACKAGE_NAME, "error importing public key for %s\n",
+                        from);
+                }
+                else {
+                    purple_debug_misc(PACKAGE_NAME, "public key for %s imported (fingerprint %s)\n",
+                        from, fingerprint ? fingerprint : "(null)");
                 }
             }
-
-            g_free((gpointer) keydata);
-
-            // packet was processed
-            return TRUE;
         }
 
-        // continue processing
-        return FALSE;
+        g_free((gpointer) keydata);
+
+        // packet was processed
+        return TRUE;
+    }
+
+    // continue processing
+    return FALSE;
 }
 
 static gboolean
 jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
                         const char *from, const char *to, xmlnode *message)
 {
-    purple_debug_misc(PACKAGE_NAME, "jabber message (type=%s, id=%s, "
-        "from=%s to=%s) %p\n",
-        type ? type : "(null)", id ? id : "(null)",
-        from ? from : "(null)", to ? to : "(null)", message);
-
     xmlnode *e2e, *body;
     if (from != NULL && !g_strcmp0(type, "chat") &&
         (e2e = xmlnode_get_child_with_namespace(message, E2E_ELEMENT, E2E_NAMESPACE)) != NULL) {
@@ -164,6 +199,19 @@ jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
                         // TODO check security status
                         body_text = msg->body;
                         body_len = strlen(msg->body);
+
+                        if (msg->type != NULL && g_str_has_prefix(msg->type, XMPP_CONTENT_TYPE)) {
+                            xmlnode *stanza = parse_xmpp_stanza(body_text, body_len);
+                            if (stanza != NULL && !strcmp(stanza->name, "message")) {
+                                // look for out-of-band
+                                char *url = extract_oob_url(stanza);
+                                if (url != NULL) {
+                                    text = url;
+                                    body_text = text;
+                                    body_len = strlen(text);
+                                }
+                            }
+                        }
                     }
                     else {
                         body_text = text;
@@ -171,9 +219,10 @@ jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
                     }
 
                     // inject into body
-
                     // WARNING accessing xmlnode internals
                     xmlnode_replace_data(body, body_text, body_len);
+
+                    // free cpim data
                     if (msg != NULL) {
                         cpim_message_free(msg);
                     }
