@@ -9,14 +9,16 @@ from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
 from twisted.internet import ssl, reactor
 
+
 PORT = 5222
 LISTEN_PORT = 5224
+
 
 class XMPPClient(Protocol):
     debug = False
     INIT = '<stream:stream to="%s" xmlns="jabber:client" xmlns:stream="http://etherx.jabber.org/streams" version="1.0">'
     SSL_INIT = '<starttls xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>'
-    SSL_REPLY = re.compile("<proceed(\\s)+xmlns(\\s)*=(\\s)*['\"]urn:ietf:params:xml:ns:xmpp-tls['\"](\\s)*/>$")
+    SSL_REPLY = re.compile("<proceed(\\s+)xmlns(\\s*)=(\\s*)['\"]urn:ietf:params:xml:ns:xmpp-tls['\"](\\s*)/>$")
 
     def __init__(self, client, domain, cert_file, pkey_file):
         self.client = client
@@ -70,6 +72,7 @@ class XMPPClient(Protocol):
 
 class BridgeProtocol(Protocol):
     debug = False
+    AUTH_INIT = re.compile("<auth(\\s+)xmlns(\\s*)=(\\s*)['\"]urn:ietf:params:xml:ns:xmpp-sasl['\"](\\s+)mechanism(\\s*)=(\\s*)['\"]PLAIN['\"](.*)>(.*)</auth>$")
 
     def __init__(self, addr, domain, host, port, cert_file, pkey_file):
         self.addr = addr
@@ -85,8 +88,7 @@ class BridgeProtocol(Protocol):
         self._conn = p
 
     def dataReceived(self, data):
-        # <auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>=</auth>
-        if '<auth' in data and 'mechanism' in data and 'PLAIN' in data:
+        if self.AUTH_INIT.search(data):
             data = data.replace('PLAIN', 'EXTERNAL')
 
         self.client.write(data)
