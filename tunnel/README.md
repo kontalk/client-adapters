@@ -12,7 +12,38 @@ storage. You need these two files:
 * `kontalk-login.crt`
 * `kontalk-login.key`
 
-Please refer to the built-in guide by running:
+
+## Installation
+
+You can install the script in any directory you like.
+You will need:
+
+ * Python >= 2.7
+ * [Twisted](http://twistedmatrix.com/) >= 13.x
+
+
+## Usage
+
+This scripts will listen on a port that your preferred XMPP client will connect
+to. Here is an example command line:
+
+```
+./ssl_bridge.py -d \
+--domain beta.kontalk.net \
+-c kontalk-login.crt \
+-k kontalk-login.key \
+beta.kontalk.net:5999
+```
+
+The script will listen on the default port 5224 for connections and create a
+bridge to `beta.kontalk.net` on port 5999, doing the SSL handshake for you.
+Setup your XMPP client to make an unencrypted connection and to use plain
+authentication (credentials don't matter, they will be discarded by the script,
+however you will need to use the domain you passed to `--domain`).
+The `-p` parameter is optional and indicates the port it will listen for
+incoming connections.
+
+For more information, please refer to the built-in guide by running:
 
 ```
 ./ssl_bridge.py -h
