@@ -10,6 +10,17 @@
 #define MESSAGE_CONTENT_TYPE            "Message/CPIM"
 #define TEXT_CONTENT_TYPE               "text/plain"
 
+#define CPIM_MESSAGE_TEMPLATE           \
+    HEADER_CONTENT_TYPE ": " MESSAGE_CONTENT_TYPE "\n" \
+    "\n" \
+    "From: %s\n" \
+    "To: %s\n" \
+    "DateTime: %s\n" \
+    "\n" \
+    HEADER_CONTENT_TYPE ": %s%s\n" \
+    "\n" \
+    "%s"
+
 
 static char *
 readline(char *text, char **next)
@@ -117,4 +128,16 @@ cpim_parse_message(const char *text, size_t len)
     g_free(buf);
     cpim_message_free(msg);
     return NULL;
+}
+
+char *
+cpim_message_create_text(const char *body, const char *from, const char *to, const char *timestamp)
+{
+    return g_strdup_printf(CPIM_MESSAGE_TEMPLATE,
+        from,
+        to,
+        timestamp,
+        TEXT_CONTENT_TYPE,
+        "; charset=utf-8",
+        body);
 }

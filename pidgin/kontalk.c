@@ -131,8 +131,9 @@ xmlnode_replace_data(xmlnode *node, const char *text, size_t len)
     for(c = node->child; c; c = c->next) {
         if(c->type == XMLNODE_TYPE_DATA) {
             g_free(c->data);
-            c->data = g_memdup(text, len);
-            c->data_sz = len;
+            size_t text_len = (len == -1) ? strlen(text) : len;
+            c->data = g_memdup(text, text_len);
+            c->data_sz = text_len;
             break;
         }
     }
@@ -230,7 +231,7 @@ jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
                     free(url);
                 }
 
-                gpg_decrypt_free(text);
+                gpg_data_free(text);
             }
         }
 
@@ -289,6 +290,86 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
     return FALSE;
 }
 
+static xmlnode *
+create_encryption_node(const char *cipher, size_t cipher_len)
+{
+    xmlnode *node = xmlnode_new(E2E_ELEMENT);
+    xmlnode_set_namespace(node, E2E_NAMESPACE);
+
+    // encode data
+    char *encoded = g_base64_encode((unsigned char *) cipher, cipher_len);
+    if (encoded) {
+        xmlnode_insert_data(node, encoded, -1);
+        return node;
+    }
+
+    xmlnode_free(node);
+    return NULL;
+}
+
+static gboolean
+jabber_xmlnode_sending(PurpleConnection *pc, xmlnode **packet)
+{
+    xmlnode *body;
+    char *cpim, *text;
+    const char *to;
+    char *cipher;
+    const char *fingerprint = NULL;
+    size_t cipher_len;
+
+    // create CPIM message from body node
+    if (!strcmp((*packet)->name, "message") && (body = xmlnode_get_child(*packet, "body")) != NULL) {
+        to = xmlnode_get_attrib(*packet, "to");
+
+        // retrieve fingerprint for user
+        PurpleBuddy *buddy = purple_find_buddy(pc->account, to);
+        if (buddy != NULL) {
+            // is the fingerprint changed?
+            fingerprint = purple_blist_node_get_string
+                (&buddy->node, "fingerprint");
+
+            if (fingerprint == NULL) {
+                purple_debug_warning(PACKAGE_NAME, "buddy %s has no fingerprint!\n", to);
+                return FALSE;
+            }
+        }
+        else {
+            purple_debug_warning(PACKAGE_NAME, "buddy %s not found!\n", to);
+            return FALSE;
+        }
+
+        if (fingerprint != NULL) {
+            text = xmlnode_get_data(body);
+
+            char *jid = jabber_get_bare_jid(to);
+            char *sender = jabber_get_bare_jid(pc->account->username);
+            cpim = cpim_message_create_text(text, sender, jid, "2015-02-05T19:00:00+00:00");
+            purple_debug_misc(PACKAGE_NAME, "CPIM DATA for %s:\n%s\n", to, cpim);
+            g_free(jid);
+            g_free(sender);
+            free(text);
+
+            if (!gpg_encrypt(fingerprint, purple_prefs_get_string(SECRET_KEY_PREF), cpim, strlen(cpim), &cipher, &cipher_len)) {
+                xmlnode *child = create_encryption_node(cipher, cipher_len);
+                gpg_data_free(cipher);
+
+                if (child != NULL) {
+                    // replace body with a dummy
+                    // WARNING accessing xmlnode internals
+                    xmlnode_replace_data(body, _("(encrypted)"), -1);
+                    // add the encrypted part
+                    xmlnode_insert_child(*packet, child);
+                }
+            }
+
+            g_free(cpim);
+        }
+    }
+
+    // continue processing
+    return FALSE;
+}
+
 static PurplePluginPrefFrame *
 pref_frame(PurplePlugin *plugin)
 {
@@ -324,6 +405,8 @@ plugin_load(PurplePlugin *plugin)
             plugin, PURPLE_CALLBACK(jabber_iq_received), NULL);
         purple_signal_connect(jabber_handle, "jabber-receiving-message",
             plugin, PURPLE_CALLBACK(jabber_message_received), NULL);
+        //purple_signal_connect(jabber_handle, "jabber-sending-xmlnode",
+        //    plugin, PURPLE_CALLBACK(jabber_xmlnode_sending), NULL);
 
         purple_signal_connect(pidgin_blist_get_handle(), "drawing-tooltip",
             plugin, PURPLE_CALLBACK(append_to_tooltip), NULL);
