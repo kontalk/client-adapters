@@ -14,6 +14,9 @@
 #include "cpim.h"
 
 
+#define SECRET_KEY_PREF         "/plugins/gtk/" PACKAGE_NAME "/secret_key"
+
+
 static char *
 extract_oob_url(xmlnode *message)
 {
@@ -80,7 +83,7 @@ generate_next_id()
         } while (index == 0);
     }
 
-    return g_strdup_printf("purpledisco%x", index++);
+    return g_strdup_printf("purple%x", index++);
 }
 
 static void
@@ -188,9 +191,9 @@ jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
 
             if (len > 0) {
                 // decrypt!
-                char *text = (char *) gpg_decrypt((void *) data, len, &out_len);
+                char *text = gpg_decrypt((void *) data, len, &out_len);
                 if (text != NULL && (body = xmlnode_get_child(message, "body")) != NULL) {
-                    char *body_text;
+                    char *body_text, *url = NULL;
                     size_t body_len;
 
                     // parse Message/CPIM
@@ -204,11 +207,10 @@ jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
                             xmlnode *stanza = parse_xmpp_stanza(body_text, body_len);
                             if (stanza != NULL && !strcmp(stanza->name, "message")) {
                                 // look for out-of-band
-                                char *url = extract_oob_url(stanza);
+                                url = extract_oob_url(stanza);
                                 if (url != NULL) {
-                                    text = url;
-                                    body_text = text;
-                                    body_len = strlen(text);
+                                    body_text = url;
+                                    body_len = strlen(url);
                                 }
                             }
                         }
@@ -223,12 +225,12 @@ jabber_message_received(PurpleConnection *pc, const char *type, const char *id,
                     xmlnode_replace_data(body, body_text, body_len);
 
                     // free cpim data
-                    if (msg != NULL) {
-                        cpim_message_free(msg);
-                    }
+                    cpim_message_free(msg);
+                    // free url
+                    free(url);
                 }
 
-                g_free(text);
+                gpg_decrypt_free(text);
             }
         }
 
@@ -287,6 +289,19 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
     return FALSE;
 }
 
+static PurplePluginPrefFrame *
+pref_frame(PurplePlugin *plugin)
+{
+    PurplePluginPrefFrame *frame = purple_plugin_pref_frame_new();
+    PurplePluginPref *pref =
+        purple_plugin_pref_new_with_name_and_label(SECRET_KEY_PREF,
+            _("Secret key"));
+
+    purple_plugin_pref_frame_add(frame, pref);
+
+    return frame;
+}
+
 static gboolean
 plugin_load(PurplePlugin *plugin)
 {
@@ -333,6 +348,15 @@ plugin_unload(PurplePlugin *plugin)
     return TRUE;
 }
 
+static PurplePluginUiInfo prefs_info = {
+        pref_frame,
+        0,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+};
 
 static PurplePluginInfo info = {
     PURPLE_PLUGIN_MAGIC,
@@ -359,7 +383,7 @@ static PurplePluginInfo info = {
 
     NULL,
     NULL,
-    NULL,
+    &prefs_info,
     NULL,
     NULL,
     NULL,
@@ -379,6 +403,13 @@ init_plugin(PurplePlugin *plugin)
     info.summary = _("Provides support for features used by a Kontalk server.");
     info.description = _("Provides support for encryption, key management, media exchange,"
         " registration and authentication for a Kontalk server");
+
+    purple_prefs_add_none("/plugins");
+    purple_prefs_add_none("/plugins/gtk");
+    purple_prefs_add_none("/plugins/gtk/" PACKAGE_NAME);
+
+    purple_prefs_add_string(SECRET_KEY_PREF, "");
+
 }
 
 PURPLE_INIT_PLUGIN(kontalk, init_plugin, info)

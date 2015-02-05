@@ -37,12 +37,14 @@ parse_header(const char *header, char **name)
 void
 cpim_message_free(cpim_message *msg)
 {
-    g_free(msg->from);
-    g_free(msg->to);
-    g_free(msg->timestamp);
-    g_free(msg->type);
-    g_free(msg->body);
-    g_free(msg);
+    if (msg != NULL) {
+        g_free(msg->from);
+        g_free(msg->to);
+        g_free(msg->timestamp);
+        g_free(msg->type);
+        g_free(msg->body);
+        g_free(msg);
+    }
 }
 
 cpim_message *

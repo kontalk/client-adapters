@@ -33,7 +33,7 @@ gpg_free()
     gpgme_release(ctx);
 }
 
-const char *
+char *
 gpg_decrypt(void *data, size_t size, size_t *out_size)
 {
     gpgme_data_t cipher, plain;
@@ -49,6 +49,20 @@ gpg_decrypt(void *data, size_t size, size_t *out_size)
     }
 
     return gpgme_data_release_and_get_mem(plain, out_size);
+}
+
+void
+gpg_decrypt_free(void *data)
+{
+    if (data != NULL)
+        gpgme_free(data);
+}
+
+const char *
+gpg_encrypt(const char *keyid, void *data, size_t size)
+{
+    // TODO
+    return NULL;
 }
 
 const char *
