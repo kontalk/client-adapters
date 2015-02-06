@@ -1,8 +1,6 @@
 Pidgin plugin
 =============
 
-> ### NOTE: this plugin doesn't have any useful features yet!
-
 This is a plugin for Pidgin. It provides support for:
 
 * Encryption
@@ -19,3 +17,17 @@ The command below will install the plugin in your home directory under
 ```
 make install
 ```
+
+
+## Usage
+
+By activating this plugin you will have automatic encryption/decryption for
+both incoming and outgoing messages plus automatic public key retrieval and
+import into your GnuPG keyring.
+
+To enable encryption for outgoing messages, you need to import your personal
+key pair (`kontalk-public.asc` and `kontalk-private.asc` from your personal key
+archive exported from the app) into GnuPG.  
+Take note of the main key ID and paste it into the plugin preferences window.
+From that point on, Pidgin will start to encrypt outgoing messages, where
+possible, and decrypt incoming messages.
