@@ -405,8 +405,8 @@ plugin_load(PurplePlugin *plugin)
             plugin, PURPLE_CALLBACK(jabber_iq_received), NULL);
         purple_signal_connect(jabber_handle, "jabber-receiving-message",
             plugin, PURPLE_CALLBACK(jabber_message_received), NULL);
-        //purple_signal_connect(jabber_handle, "jabber-sending-xmlnode",
-        //    plugin, PURPLE_CALLBACK(jabber_xmlnode_sending), NULL);
+        purple_signal_connect(jabber_handle, "jabber-sending-xmlnode",
+            plugin, PURPLE_CALLBACK(jabber_xmlnode_sending), NULL);
 
         purple_signal_connect(pidgin_blist_get_handle(), "drawing-tooltip",
             plugin, PURPLE_CALLBACK(append_to_tooltip), NULL);
