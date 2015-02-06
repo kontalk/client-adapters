@@ -9,6 +9,8 @@
 gboolean gpg_init();
 void gpg_free();
 
+const char *gpg_get_userid(const char *pattern, int secret_only);
+
 char *gpg_decrypt(void *data, size_t size, size_t *out_size);
 
 gpgme_error_t gpg_encrypt(const char *rcpt, const char *signer, char *data, size_t size, char **out, size_t *out_size);

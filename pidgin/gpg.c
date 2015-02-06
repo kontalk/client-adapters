@@ -51,6 +51,25 @@ end:
     return err;
 }
 
+const char *
+gpg_get_userid(const char *pattern, int secret_only)
+{
+    gpgme_error_t err;
+    gpgme_key_t key = NULL;
+    const char *uid = NULL;
+
+    err = gpg_get_key(pattern, &key, secret_only);
+    if (err)
+        goto end;
+
+    uid = key->uids->uid;
+
+end:
+    if (key != NULL)
+        gpgme_key_unref(key);
+    return uid;
+}
+
 // TODO this should return an error like gpg_encrypt
 char *
 gpg_decrypt(void *data, size_t size, size_t *out_size)

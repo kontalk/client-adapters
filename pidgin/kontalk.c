@@ -1,5 +1,7 @@
 #define PURPLE_PLUGINS
 
+#include <time.h>
+
 #include <glib.h>
 #include <glib/gi18n.h>
 
@@ -16,6 +18,10 @@
 
 #define SECRET_KEY_PREF         "/plugins/gtk/" PACKAGE_NAME "/secret_key"
 
+// this is completely safe since Pidgin is not multithread
+#define TIMESTAMP_LEN           25
+static char timestamp_buffer[TIMESTAMP_LEN+1] = {0, };
+#define TIMESTAMP_FORMAT        "%Y-%m-%dT%H:%M:%S%z"
 
 static char *
 extract_oob_url(xmlnode *message)
@@ -307,6 +313,14 @@ create_encryption_node(const char *cipher, size_t cipher_len)
     return NULL;
 }
 
+static const char *
+get_current_timestamp()
+{
+    time_t ts = time(NULL);
+    strftime(timestamp_buffer, TIMESTAMP_LEN, TIMESTAMP_FORMAT, gmtime(&ts));
+    return timestamp_buffer;
+}
+
 static gboolean
 jabber_xmlnode_sending(PurpleConnection *pc, xmlnode **packet)
 {
@@ -341,15 +355,26 @@ jabber_xmlnode_sending(PurpleConnection *pc, xmlnode **packet)
         if (fingerprint != NULL) {
             text = xmlnode_get_data(body);
 
-            char *jid = jabber_get_bare_jid(to);
-            char *sender = jabber_get_bare_jid(pc->account->username);
-            cpim = cpim_message_create_text(text, sender, jid, "2015-02-05T19:00:00+00:00");
+            const char *secret_key = purple_prefs_get_string(SECRET_KEY_PREF);
+
+            const char *sender = gpg_get_userid(secret_key, 1);
+            const char *recipient = gpg_get_userid(fingerprint, 0);
+            if (sender == NULL) {
+                purple_debug_error(PACKAGE_NAME, "unable to find secret key!\n");
+                free(text);
+                return FALSE;
+            }
+            if (recipient == NULL) {
+                purple_debug_warning(PACKAGE_NAME, "unable to find public key for %s!\n", to);
+                free(text);
+                return FALSE;
+            }
+
+            cpim = cpim_message_create_text(text, sender, recipient, get_current_timestamp());
             purple_debug_misc(PACKAGE_NAME, "CPIM DATA for %s:\n%s\n", to, cpim);
-            g_free(jid);
-            g_free(sender);
             free(text);
 
-            if (!gpg_encrypt(fingerprint, purple_prefs_get_string(SECRET_KEY_PREF), cpim, strlen(cpim), &cipher, &cipher_len)) {
+            if (!gpg_encrypt(fingerprint, secret_key, cpim, strlen(cpim), &cipher, &cipher_len)) {
                 xmlnode *child = create_encryption_node(cipher, cipher_len);
                 gpg_data_free(cipher);
 
