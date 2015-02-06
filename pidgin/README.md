@@ -3,8 +3,8 @@ Pidgin plugin
 
 This is a plugin for Pidgin. It provides support for:
 
-* Encryption
-* Key management
+* Encryption :white_check_mark:
+* Key retrieval :white_check_mark:
 * Media exchange
 * Registration
 * Authentication
