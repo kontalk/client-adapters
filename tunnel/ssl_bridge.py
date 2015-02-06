@@ -81,11 +81,14 @@ class BridgeProtocol(Protocol):
         self.port = port
         self.cert_file = cert_file
         self.pkey_file = pkey_file
-        self._conn = None
+        self._endpoint = None
         self._buf = ''
 
     def _connected(self, p):
-        self._conn = p
+        self._endpoint = None
+
+    def _error(self, fail=None):
+        self.connectionLost(fail)
 
     def dataReceived(self, data):
         if self.AUTH_INIT.search(data):
@@ -105,9 +108,16 @@ class BridgeProtocol(Protocol):
         self.client = XMPPClient(self, self.domain, self.cert_file, self.pkey_file)
         d = connectProtocol(point, self.client)
         d.addCallback(self._connected)
+        d.addErrback(self._error)
+        self._endpoint = d
 
     def connectionLost(self, reason):
-        pass
+        print 'lost connection from %s (%s)' % (self.addr, reason)
+        if self.client.transport:
+            self.client.transport.loseConnection()
+        if self._endpoint:
+            self._endpoint.cancel()
+            self._endpoint = None
 
 
 class BridgeFactory(Factory):
