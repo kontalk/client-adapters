@@ -7,4 +7,4 @@ the need for client certificate authentication).
 It includes:
 
 * generic SSL tunnel script
-* Pidgin plugin (**TODO**)
+* Pidgin plugin
