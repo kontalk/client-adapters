@@ -371,7 +371,6 @@ jabber_xmlnode_sending(PurpleConnection *pc, xmlnode **packet)
             }
 
             cpim = cpim_message_create_text(text, sender, recipient, get_current_timestamp());
-            purple_debug_misc(PACKAGE_NAME, "CPIM DATA for %s:\n%s\n", to, cpim);
             free(text);
 
             if (!gpg_encrypt(fingerprint, secret_key, cpim, strlen(cpim), &cipher, &cipher_len)) {
