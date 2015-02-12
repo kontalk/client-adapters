@@ -7,7 +7,7 @@ import re
 
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
-from twisted.internet import ssl, reactor
+from twisted.internet import ssl, reactor, error
 
 
 PORT = 5222
@@ -111,8 +111,9 @@ class BridgeProtocol(Protocol):
         d.addErrback(self._error)
         self._endpoint = d
 
-    def connectionLost(self, reason):
-        print 'lost connection from %s (%s)' % (self.addr, reason)
+    def connectionLost(self, reason=error.ConnectionDone):
+        if not isinstance(reason, error.ConnectionDone):
+            print 'lost connection from %s (%s)' % (self.addr, reason)
         if self.client.transport:
             self.client.transport.loseConnection()
         if self._endpoint:
