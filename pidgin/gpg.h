@@ -9,7 +9,7 @@
 gboolean gpg_init();
 void gpg_free();
 
-const char *gpg_get_userid(const char *pattern, int secret_only);
+char *gpg_get_userid(const char *pattern, int secret_only);
 
 char *gpg_decrypt(void *data, size_t size, size_t *out_size);
 

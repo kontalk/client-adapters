@@ -357,8 +357,8 @@ jabber_xmlnode_sending(PurpleConnection *pc, xmlnode **packet)
 
             const char *secret_key = purple_prefs_get_string(SECRET_KEY_PREF);
 
-            const char *sender = gpg_get_userid(secret_key, 1);
-            const char *recipient = gpg_get_userid(fingerprint, 0);
+            char *sender = gpg_get_userid(secret_key, 1);
+            char *recipient = gpg_get_userid(fingerprint, 0);
             if (sender == NULL) {
                 purple_debug_error(PACKAGE_NAME, "unable to find secret key!\n");
                 free(text);
@@ -372,6 +372,8 @@ jabber_xmlnode_sending(PurpleConnection *pc, xmlnode **packet)
 
             cpim = cpim_message_create_text(text, sender, recipient, get_current_timestamp());
             free(text);
+            free(sender);
+            free(recipient);
 
             if (!gpg_encrypt(fingerprint, secret_key, cpim, strlen(cpim), &cipher, &cipher_len)) {
                 xmlnode *child = create_encryption_node(cipher, cipher_len);

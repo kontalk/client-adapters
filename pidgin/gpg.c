@@ -51,18 +51,19 @@ end:
     return err;
 }
 
-const char *
+char *
 gpg_get_userid(const char *pattern, int secret_only)
 {
     gpgme_error_t err;
     gpgme_key_t key = NULL;
-    const char *uid = NULL;
+    char *uid = NULL;
 
     err = gpg_get_key(pattern, &key, secret_only);
     if (err)
         goto end;
 
-    uid = key->uids->uid;
+    if (key->uids->uid != NULL)
+        uid = strdup(key->uids->uid);
 
 end:
     if (key != NULL)
