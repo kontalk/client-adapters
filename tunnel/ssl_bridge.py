@@ -72,7 +72,7 @@ class XMPPClient(Protocol):
 
 class BridgeProtocol(Protocol):
     debug = False
-    AUTH_INIT = re.compile("<auth(\\s+)xmlns(\\s*)=(\\s*)['\"]urn:ietf:params:xml:ns:xmpp-sasl['\"](\\s+)mechanism(\\s*)=(\\s*)['\"]PLAIN['\"](.*)>(.*)</auth>$")
+    AUTH_INIT = re.compile("<auth\s*(.*)\s*xmlns(\\s*)=(\\s*)['\"]urn:ietf:params:xml:ns:xmpp-sasl['\"](\\s+)mechanism(\\s*)=(\\s*)['\"]PLAIN['\"](.*)>(.*)</auth>$")
 
     def __init__(self, addr, domain, host, port, cert_file, pkey_file):
         self.addr = addr
