@@ -36,4 +36,4 @@ possible, and decrypt incoming messages.
 
 ## Additional features
 
-You can have support for delivery receipts using another plugin also forked here: [pidgin-xmpp-receipts](/kontalk/pidgin-xmpp-receipts)
+You can have support for delivery receipts using another plugin also forked here: [pidgin-xmpp-receipts](//github.com/kontalk/pidgin-xmpp-receipts)
