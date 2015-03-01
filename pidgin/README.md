@@ -3,11 +3,12 @@ Pidgin plugin
 
 This is a plugin for Pidgin. It provides support for:
 
+* Authentication (provided by tunnel script) :white_check_mark:
 * Encryption :white_check_mark:
 * Key retrieval :white_check_mark:
-* Media exchange
+* Media support (receive only) :white_check_mark:
+* Picture thumbnail
 * Registration
-* Authentication
 
 ## Build
 
@@ -31,3 +32,8 @@ archive exported from the app) into GnuPG.
 Take note of the main key ID and paste it into the plugin preferences window.
 From that point on, Pidgin will start to encrypt outgoing messages, where
 possible, and decrypt incoming messages.
+
+
+## Additional features
+
+You can have support for delivery receipts using another plugin also forked here: [pidgin-xmpp-receipts](/kontalk/pidgin-xmpp-receipts)
