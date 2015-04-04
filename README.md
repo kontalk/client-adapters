@@ -10,4 +10,4 @@ It includes:
 * Pidgin plugin
 
 If you want to run Pidgin over the Kontalk network please refere to the 
-Wiki page
+Wiki page [How to configure Pidgin for Kontalk](https://github.com/kontalk/client-adapters/wiki/Configure-Pidgin-for-Kontalk)
