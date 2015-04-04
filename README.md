@@ -8,3 +8,6 @@ It includes:
 
 * generic SSL tunnel script
 * Pidgin plugin
+
+If you want to run Pidgin over the Kontalk network please refere to the 
+Wiki page
