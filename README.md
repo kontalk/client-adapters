@@ -9,5 +9,5 @@ It includes:
 * generic SSL tunnel script
 * Pidgin plugin
 
-If you want to run Pidgin over the Kontalk network please refere to the 
-Wiki page [How to configure Pidgin for Kontalk](https://github.com/kontalk/client-adapters/wiki/Configure-Pidgin-for-Kontalk)
+If you want to use Pidgin on the Kontalk network please refer to the 
+Wiki page [How to configure Pidgin for Kontalk](//github.com/kontalk/client-adapters/wiki/Configure-Pidgin-for-Kontalk)
