@@ -267,16 +267,21 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
                     // retrieve buddy from name
                     PurpleBuddy *buddy = purple_find_buddy(pc->account, from);
                     if (buddy != NULL) {
+                        char* uid = NULL;
+
                         // is the fingerprint changed?
                         const char* old_fingerprint = purple_blist_node_get_string
                             (&buddy->node, "fingerprint");
 
-                        if (g_strcmp0(old_fingerprint, fingerprint)) {
-                            // fingerprint changed, request key
+                        // ...or maybe the key doesn't exist?
+                        if (g_strcmp0(old_fingerprint, fingerprint) || !(uid = gpg_get_userid(fingerprint, 0))) {
+                            // fingerprint changed or key not found, request key
                             char* jid = jabber_get_bare_jid(from);
                             request_public_key(pc, jid);
                             g_free(jid);
                         }
+
+                        free(uid);
 
                         // store fingerprint
                         purple_blist_node_set_string(&buddy->node, "fingerprint", fingerprint);
