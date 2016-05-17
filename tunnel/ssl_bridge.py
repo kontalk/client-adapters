@@ -19,6 +19,7 @@ class XMPPClient(Protocol):
     INIT = '<stream:stream to="%s" xmlns="jabber:client" xmlns:stream="http://etherx.jabber.org/streams" version="1.0">'
     SSL_INIT = '<starttls xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>'
     SSL_REPLY = re.compile("<proceed(\\s+)xmlns(\\s*)=(\\s*)['\"]urn:ietf:params:xml:ns:xmpp-tls['\"](\\s*)/>$")
+    SASL_MECHS = re.compile("<mechanism>EXTERNAL</mechanism><mechanism>KONTALK-TOKEN</mechanism>")
 
     def __init__(self, client, domain, cert_file, pkey_file):
         self.client = client
@@ -50,6 +51,11 @@ class XMPPClient(Protocol):
     def dataReceived(self, data):
         if self.debug:
             print 'RECV: %s' % (data, )
+        if self.SASL_MECHS.search(data):
+            if self.debug:
+                print 'filtering SASL mechanisms'
+            data = self.SASL_MECHS.sub('', data)
+
         if self.transport.TLS:
             self.client.transport.write(data)
         elif self.SSL_REPLY.search(data):
