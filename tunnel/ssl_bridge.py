@@ -20,6 +20,7 @@ class XMPPClient(Protocol):
     SSL_INIT = '<starttls xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>'
     SSL_REPLY = re.compile("<proceed(\\s+)xmlns(\\s*)=(\\s*)['\"]urn:ietf:params:xml:ns:xmpp-tls['\"](\\s*)/>$")
     SASL_MECHS = re.compile("<mechanism>EXTERNAL</mechanism><mechanism>KONTALK-TOKEN</mechanism>")
+    SASL_EXTERNAL = re.compile("<mechanism>EXTERNAL</mechanism>")
 
     def __init__(self, client, domain, cert_file, pkey_file):
         self.client = client
@@ -55,6 +56,10 @@ class XMPPClient(Protocol):
             if self.debug:
                 print 'filtering SASL mechanisms'
             data = self.SASL_MECHS.sub('', data)
+        elif self.SASL_EXTERNAL.search(data):
+            if self.debug:
+                print 'filtering SASL mechanisms'
+            data = self.SASL_EXTERNAL.sub('<mechanism>PLAIN</mechanism>', data)
 
         if self.transport.TLS:
             self.client.transport.write(data)
