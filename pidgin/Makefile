@@ -32,7 +32,7 @@ clean:
 	rm -f $(BIN) $(OBJS)
 
 $(BIN): $(OBJS)
-	$(LD) $(LDFLAGS) -o $(BIN) $(OBJS)
+	$(LD) -o $(BIN) $(OBJS) $(LDFLAGS)
 
 .c.o:
 	$(CC) $(CFLAGS) -o $@ $<
