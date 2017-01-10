@@ -130,6 +130,31 @@ append_to_tooltip(PurpleBlistNode *node, GString *text, gboolean full)
 }
 
 static void
+request_key_cb(PurpleBlistNode *node, gpointer data)
+{
+    if (PURPLE_BLIST_NODE_IS_BUDDY(node)) {
+        PurpleBuddy *b = (PurpleBuddy *) node;
+        request_public_key(purple_account_get_connection(purple_buddy_get_account(b)),
+            purple_buddy_get_name(b));
+    }
+}
+
+static void
+extended_menu_cb(PurpleBlistNode *node, GList **m)
+{
+    PurpleMenuAction *bna = NULL;
+
+    if (purple_blist_node_get_flags(node) & PURPLE_BLIST_NODE_FLAG_NO_SAVE)
+            return;
+
+    if (PURPLE_BLIST_NODE_IS_BUDDY(node)) {
+        *m = g_list_append(*m, bna);
+        bna = purple_menu_action_new(_("Request key"), PURPLE_CALLBACK(request_key_cb), NULL, NULL);
+        *m = g_list_append(*m, bna);
+    }
+}
+
+static void
 xmlnode_replace_data(xmlnode *node, const char *text, size_t len)
 {
     xmlnode *c;
@@ -441,6 +466,8 @@ plugin_load(PurplePlugin *plugin)
 
         purple_signal_connect(pidgin_blist_get_handle(), "drawing-tooltip",
             plugin, PURPLE_CALLBACK(append_to_tooltip), NULL);
+        purple_signal_connect(purple_blist_get_handle(), "blist-node-extended-menu",
+            plugin, PURPLE_CALLBACK(extended_menu_cb), NULL);
 
         // TODO warn once
         purple_notify_message(plugin, PURPLE_NOTIFY_MSG_INFO, PACKAGE_TITLE,
