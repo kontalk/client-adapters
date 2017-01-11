@@ -78,6 +78,25 @@ jabber_get_bare_jid(const char *in)
     return NULL;
 }
 
+static char *
+jabber_get_domain(const char *in)
+{
+    if (in != NULL) {
+        char *sep = strstr(in, "@");
+        if (sep != NULL) {
+            sep = g_strdup(sep+1);
+            char *end = strstr(sep, "/");
+            if (end != NULL) {
+                *end = '\0';
+            }
+            return sep;
+        }
+    }
+
+    return NULL;
+}
+
+
 static char*
 generate_next_id()
 {
@@ -171,6 +190,71 @@ xmlnode_replace_data(xmlnode *node, const char *text, size_t len)
 }
 
 static gboolean
+jid_localpart_equal(const char* jid, const char* localpart)
+{
+    gboolean ret = FALSE;
+    char* jid2 = NULL;
+    char* domain = jabber_get_domain(jid);
+    if (domain != NULL) {
+        jid2 = g_strdup_printf("%s@%s", localpart, domain);
+        g_assert(jid2 != NULL);
+
+        ret = (strcasecmp(jid, jid2) == 0);
+    }
+
+    g_free(domain);
+    g_free(jid2);
+    return ret;
+}
+
+static const char *
+gpg_userid_get_name(const char* uid)
+{
+    char *sep = strstr(uid, " <");
+    if (sep != NULL) {
+        *sep = '\0';
+        return uid;
+    }
+
+    return NULL;
+}
+
+static gboolean
+rename_user_from_key(PurpleAccount *account, const char *jid, const char *fingerprint)
+{
+    gboolean ret = FALSE;
+
+    // lookup contact in blist
+    PurpleBuddy *buddy = purple_find_buddy(account, jid);
+    if (buddy != NULL) {
+        const char* alias = purple_buddy_get_alias(buddy);
+
+        // server could automatically set the name to the JID or to its localpart
+        if (alias == NULL || !strcasecmp(jid, alias) || jid_localpart_equal(jid, alias)) {
+            // extract UID from key
+            char *uid = gpg_get_userid(fingerprint, 0);
+            if (uid != NULL) {
+                // modifies the string in place
+                const char *name = gpg_userid_get_name(uid);
+
+                if (name != NULL) {
+                    // set local alias
+                    purple_blist_alias_buddy(buddy, name);
+                    serv_alias_buddy(buddy);
+                    purple_debug_misc(PACKAGE_NAME, "user %s renamed to \"%s\"\n",
+                                jid, name);
+                    ret = TRUE;
+                }
+
+                free(uid);
+            }
+        }
+    }
+
+    return ret;
+}
+
+static gboolean
 jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
                    const char *from, xmlnode *iq)
 {
@@ -191,8 +275,13 @@ jabber_iq_received(PurpleConnection *pc, const char *type, const char *id,
                         from);
                 }
                 else {
+                    // create a copy of the string since this appears to go somewhere
+                    fingerprint = g_strdup(fingerprint);
                     purple_debug_misc(PACKAGE_NAME, "public key for %s imported (fingerprint %s)\n",
                         from, fingerprint ? fingerprint : "(null)");
+                    // rename the user if necessary
+                    rename_user_from_key(purple_connection_get_account(pc), from, fingerprint);
+                    g_free((char *) fingerprint);
                 }
             }
         }
@@ -290,22 +379,26 @@ jabber_presence_received(PurpleConnection *pc, const char *type,
                         from, fingerprint);
 
                     // retrieve buddy from name
-                    PurpleBuddy *buddy = purple_find_buddy(pc->account, from);
+                    PurpleBuddy *buddy = purple_find_buddy(purple_connection_get_account(pc), from);
                     if (buddy != NULL) {
                         char* uid = NULL;
 
                         // is the fingerprint changed?
                         const char* old_fingerprint = purple_blist_node_get_string
                             (&buddy->node, "fingerprint");
+                        char* jid = jabber_get_bare_jid(from);
 
                         // ...or maybe the key doesn't exist?
                         if (g_strcmp0(old_fingerprint, fingerprint) || !(uid = gpg_get_userid(fingerprint, 0))) {
                             // fingerprint changed or key not found, request key
-                            char* jid = jabber_get_bare_jid(from);
                             request_public_key(pc, jid);
-                            g_free(jid);
+                        }
+                        else {
+                            // do we need to rename the user?
+                            rename_user_from_key(purple_connection_get_account(pc), jid, fingerprint);
                         }
 
+                        g_free(jid);
                         free(uid);
 
                         // store fingerprint
@@ -471,8 +564,7 @@ plugin_load(PurplePlugin *plugin)
 
         // TODO warn once
         purple_notify_message(plugin, PURPLE_NOTIFY_MSG_INFO, PACKAGE_TITLE,
-            // TODO i18n
-            "You need to use the SSL tunnel bridge!", NULL, NULL, NULL);
+            _("You need to use the SSL tunnel bridge!"), NULL, NULL, NULL);
 
         return TRUE;
     }
