@@ -26,6 +26,7 @@ LDFLAGS = -shared -fPIC `pkg-config --libs $(PKGCONFIG_DEPS)` `gpgme-config --li
 all: $(BIN)
 
 install: all
+	strip $(BIN)
 	install $(BIN) ~/.purple/plugins
 
 clean:
