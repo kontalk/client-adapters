@@ -32,6 +32,7 @@
 #include "kontalk.h"
 #include "gpg.h"
 #include "cpim.h"
+#include "tunnel.h"
 
 
 #define SECRET_KEY_PREF         "/plugins/gtk/" PACKAGE_NAME "/secret_key"
@@ -580,9 +581,12 @@ plugin_load(PurplePlugin *plugin)
         purple_signal_connect(purple_blist_get_handle(), "blist-node-extended-menu",
             plugin, PURPLE_CALLBACK(extended_menu_cb), NULL);
 
-        // TODO warn once
-        purple_notify_message(plugin, PURPLE_NOTIFY_MSG_INFO, PACKAGE_TITLE,
-            _("You need to use the SSL tunnel bridge!"), NULL, NULL, NULL);
+        // TODO parametrize
+        if (!tunnel_start(5224, "beta.kontalk.net", 5222)) {
+        //if (!tunnel_start(5224, "localhost", 5222)) {
+            purple_notify_message(plugin, PURPLE_NOTIFY_MSG_WARNING, PACKAGE_TITLE,
+                _("Unable to create tunnel service. Is the configured port already used?"), NULL, NULL, NULL);
+        }
 
         return TRUE;
     }
@@ -595,6 +599,7 @@ plugin_unload(PurplePlugin *plugin)
 {
     purple_signals_disconnect_by_handle(plugin);
     gpg_free();
+    tunnel_stop();
 
     return TRUE;
 }

@@ -7,7 +7,7 @@ PREFIX = "/usr"
 LOCALEDIR = "$(PREFIX)/locale"
 
 BIN = kontalk.so
-OBJS = gpg.o cpim.o kontalk.o
+OBJS = gpg.o cpim.o tunnel.o kontalk.o
 PKGCONFIG_DEPS = pidgin
 CC = gcc -c
 LD = gcc
