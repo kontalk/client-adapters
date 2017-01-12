@@ -18,8 +18,6 @@
 
 #include <string.h>
 
-#include <gpgme.h>
-
 #include <debug.h>
 
 #include "gpg.h"
