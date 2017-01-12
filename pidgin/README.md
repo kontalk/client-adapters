@@ -3,12 +3,13 @@ Pidgin plugin
 
 This is a plugin for Pidgin. It provides support for:
 
-* Authentication (provided by tunnel script) :white_check_mark:
-* Encryption :white_check_mark:
-* Key retrieval :white_check_mark:
-* Media support (receive only) :white_check_mark:
-* Picture thumbnail
-* Registration
+- [x] Authentication (provided by tunnel script)
+- [x] Encryption
+- [x] Key retrieval
+- [x] Rename users using name from key
+- [x] Media support (receive only)
+- [ ] Picture thumbnail
+- [ ] Registration
 
 ## Build
 
@@ -24,7 +25,8 @@ make install
 
 By activating this plugin you will have automatic encryption/decryption for
 both incoming and outgoing messages plus automatic public key retrieval and
-import into your GnuPG keyring.
+import into your GnuPG keyring. Buddies with unset name will be renamed with
+the name found in the public key.
 
 To enable encryption for outgoing messages, you need to import your personal
 key pair (`kontalk-public.asc` and `kontalk-private.asc` from your personal key
