@@ -21,7 +21,7 @@
 
 #include <glib.h>
 
-gboolean tunnel_start(guint16 listen_port, const gchar *server_host, guint16 server_port);
+gboolean tunnel_start(guint16 listen_port, const gchar *service_name, const gchar *server_host, guint16 server_port);
 
 void tunnel_stop();
 

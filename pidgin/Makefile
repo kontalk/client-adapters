@@ -18,6 +18,7 @@ CFLAGS = -Wall -fPIC \
 	-DGETTEXT_PACKAGE=\"$(PACKAGE_NAME)\" \
 	-DLOCALEDIR=\"$(LOCALEDIR)\" \
 	-D_FILE_OFFSET_BITS=64 \
+	-D_GNU_SOURCE \
 	`pkg-config --cflags $(PKGCONFIG_DEPS)` \
 	`gpgme-config --cflags`
 LDFLAGS = -shared -fPIC `pkg-config --libs $(PKGCONFIG_DEPS)` `gpgme-config --libs`

@@ -582,8 +582,8 @@ plugin_load(PurplePlugin *plugin)
             plugin, PURPLE_CALLBACK(extended_menu_cb), NULL);
 
         // TODO parametrize
-        if (!tunnel_start(5224, "beta.kontalk.net", 5222)) {
-        //if (!tunnel_start(5224, "localhost", 5222)) {
+        if (!tunnel_start(5224, "beta.kontalk.net", "beta.kontalk.net", 5222)) {
+        //if (!tunnel_start(5224, "beta.kontalk.net", "localhost", 5222)) {
             purple_notify_message(plugin, PURPLE_NOTIFY_MSG_WARNING, PACKAGE_TITLE,
                 _("Unable to create tunnel service. Is the configured port already used?"), NULL, NULL, NULL);
         }
