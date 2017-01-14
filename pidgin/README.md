@@ -52,7 +52,7 @@ After that, it's just a matter of telling the plugin where to take the certifica
 and the private key, host and port to connect to and the port to listen for
 connections from Pidgin (pretty much what the Python script asks).
 
-You can disable the internal tunnel of the script by setting the listening port
+You can disable the internal tunnel of the plugin by setting the listening port
 to 0 (default).
 
 
