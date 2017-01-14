@@ -1,7 +1,7 @@
 # Makefile for Kontalk Pidgin plugin
 
 PACKAGE_NAME = "kontalk"
-PACKAGE_VERSION = "0.1"
+PACKAGE_VERSION = "0.2"
 
 PREFIX = "/usr"
 LOCALEDIR = "$(PREFIX)/locale"

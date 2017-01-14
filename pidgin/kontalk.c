@@ -546,11 +546,33 @@ jabber_xmlnode_sending(PurpleConnection *pc, xmlnode **packet)
 static PurplePluginPrefFrame *
 pref_frame(PurplePlugin *plugin)
 {
+    PurplePluginPref *pref;
     PurplePluginPrefFrame *frame = purple_plugin_pref_frame_new();
-    PurplePluginPref *pref =
-        purple_plugin_pref_new_with_name_and_label(SECRET_KEY_PREF,
-            _("Secret key"));
 
+    pref = purple_plugin_pref_new_with_name_and_label(SECRET_KEY_PREF,
+            _("Secret key"));
+    purple_plugin_pref_frame_add(frame, pref);
+
+    pref = purple_plugin_pref_new_with_name_and_label(TUN_CERTIFICATE_PREF,
+            _("Certificate file"));
+    purple_plugin_pref_frame_add(frame, pref);
+
+    pref = purple_plugin_pref_new_with_name_and_label(TUN_PRIVATE_KEY_PREF,
+            _("Private key file"));
+    purple_plugin_pref_frame_add(frame, pref);
+
+    pref = purple_plugin_pref_new_with_name_and_label(TUN_PORT_PREF,
+            _("Tunnel listen port"));
+    purple_plugin_pref_set_bounds(pref, 0, 65536);
+    purple_plugin_pref_frame_add(frame, pref);
+
+    pref = purple_plugin_pref_new_with_name_and_label(TUN_RELAY_HOST_PREF,
+            _("Server host"));
+    purple_plugin_pref_frame_add(frame, pref);
+
+    pref = purple_plugin_pref_new_with_name_and_label(TUN_RELAY_PORT_PREF,
+            _("Server port"));
+    purple_plugin_pref_set_bounds(pref, 0, 65536);
     purple_plugin_pref_frame_add(frame, pref);
 
     return frame;
@@ -587,26 +609,28 @@ plugin_load(PurplePlugin *plugin)
             plugin, PURPLE_CALLBACK(extended_menu_cb), NULL);
 
         const guint16 tun_port = purple_prefs_get_int(TUN_PORT_PREF);
-        const gchar* relay_host = purple_prefs_get_string(TUN_RELAY_HOST_PREF);
-        const guint16 relay_port = purple_prefs_get_int(TUN_RELAY_PORT_PREF);
-        const gchar* certificate = purple_prefs_get_path(TUN_CERTIFICATE_PREF);
-        const gchar* private_key = purple_prefs_get_path(TUN_PRIVATE_KEY_PREF);
-        if ((certificate != NULL && strlen(certificate) == 0) ||
-            (private_key != NULL && strlen(private_key) == 0)) {
-            certificate = private_key = NULL;
-        }
+        if (tun_port > 0 && tun_port <= 65536) {
+            const gchar* relay_host = purple_prefs_get_string(TUN_RELAY_HOST_PREF);
+            const guint16 relay_port = purple_prefs_get_int(TUN_RELAY_PORT_PREF);
+            const gchar* certificate = purple_prefs_get_string(TUN_CERTIFICATE_PREF);
+            const gchar* private_key = purple_prefs_get_string(TUN_PRIVATE_KEY_PREF);
+            if ((certificate != NULL && strlen(certificate) == 0) ||
+                (private_key != NULL && strlen(private_key) == 0)) {
+                certificate = private_key = NULL;
+            }
 
-        // TODO we should use SRV discovery and host/port as fallback
-        // TODO extract service name from account (host property)
-        TunnelError tun_err = tunnel_start(tun_port, relay_host, relay_host, relay_port,
-                certificate, private_key);
-        if (tun_err == TUN_ERR_LISTEN) {
-            purple_notify_message(plugin, PURPLE_NOTIFY_MSG_WARNING, PACKAGE_TITLE,
-                _("Unable to create tunnel service. Is the configured port already used?"), NULL, NULL, NULL);
-        }
-        else if (tun_err == TUN_ERR_CERTIFICATE) {
-            purple_notify_message(plugin, PURPLE_NOTIFY_MSG_WARNING, PACKAGE_TITLE,
-                _("Unable to load certificate for Kontalk."), NULL, NULL, NULL);
+            // TODO we should use SRV discovery and host/port as fallback
+            // TODO extract service name from account (host property)
+            TunnelError tun_err = tunnel_start(tun_port, relay_host, relay_host, relay_port,
+                    certificate, private_key);
+            if (tun_err == TUN_ERR_LISTEN) {
+                purple_notify_message(plugin, PURPLE_NOTIFY_MSG_WARNING, PACKAGE_TITLE,
+                    _("Unable to create tunnel service. Is the configured port already used?"), NULL, NULL, NULL);
+            }
+            else if (tun_err == TUN_ERR_CERTIFICATE) {
+                purple_notify_message(plugin, PURPLE_NOTIFY_MSG_WARNING, PACKAGE_TITLE,
+                    _("Unable to load certificate for Kontalk."), NULL, NULL, NULL);
+            }
         }
 
         return TRUE;
@@ -686,11 +710,12 @@ init_plugin(PurplePlugin *plugin)
     purple_prefs_add_none("/plugins/gtk/" PACKAGE_NAME);
 
     purple_prefs_add_string(SECRET_KEY_PREF, "");
-    purple_prefs_add_int(TUN_PORT_PREF, DEFAULT_TUNNEL_PORT);
+    // TODO until a checkbox is implemented, make this zero to disable internal tunnel
+    purple_prefs_add_int(TUN_PORT_PREF, 0 /*DEFAULT_TUNNEL_PORT*/);
     purple_prefs_add_string(TUN_RELAY_HOST_PREF, DEFAULT_RELAY_HOST);
     purple_prefs_add_int(TUN_RELAY_PORT_PREF, DEFAULT_RELAY_PORT);
-    purple_prefs_add_path(TUN_CERTIFICATE_PREF, "");
-    purple_prefs_add_path(TUN_PRIVATE_KEY_PREF, "");
+    purple_prefs_add_string(TUN_CERTIFICATE_PREF, "");
+    purple_prefs_add_string(TUN_PRIVATE_KEY_PREF, "");
 }
 
 PURPLE_INIT_PLUGIN(kontalk, init_plugin, info)
