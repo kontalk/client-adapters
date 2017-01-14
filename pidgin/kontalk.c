@@ -36,6 +36,11 @@
 
 
 #define SECRET_KEY_PREF         "/plugins/gtk/" PACKAGE_NAME "/secret_key"
+#define TUN_PORT_PREF           "/plugins/gtk/" PACKAGE_NAME "/tun_port"
+#define TUN_RELAY_HOST_PREF     "/plugins/gtk/" PACKAGE_NAME "/tun_relay_host"
+#define TUN_RELAY_PORT_PREF     "/plugins/gtk/" PACKAGE_NAME "/tun_relay_port"
+#define TUN_CERTIFICATE_PREF     "/plugins/gtk/" PACKAGE_NAME "/tun_certificate"
+#define TUN_PRIVATE_KEY_PREF     "/plugins/gtk/" PACKAGE_NAME "/tun_private_key"
 
 // this is completely safe since Pidgin is not multithread
 #define TIMESTAMP_LEN           25
@@ -581,11 +586,27 @@ plugin_load(PurplePlugin *plugin)
         purple_signal_connect(purple_blist_get_handle(), "blist-node-extended-menu",
             plugin, PURPLE_CALLBACK(extended_menu_cb), NULL);
 
-        // TODO parametrize
-        if (!tunnel_start(5224, "beta.kontalk.net", "beta.kontalk.net", 5222)) {
-        //if (!tunnel_start(5224, "beta.kontalk.net", "localhost", 5222)) {
+        const guint16 tun_port = purple_prefs_get_int(TUN_PORT_PREF);
+        const gchar* relay_host = purple_prefs_get_string(TUN_RELAY_HOST_PREF);
+        const guint16 relay_port = purple_prefs_get_int(TUN_RELAY_PORT_PREF);
+        const gchar* certificate = purple_prefs_get_path(TUN_CERTIFICATE_PREF);
+        const gchar* private_key = purple_prefs_get_path(TUN_PRIVATE_KEY_PREF);
+        if ((certificate != NULL && strlen(certificate) == 0) ||
+            (private_key != NULL && strlen(private_key) == 0)) {
+            certificate = private_key = NULL;
+        }
+
+        // TODO we should use SRV discovery and host/port as fallback
+        // TODO extract service name from account (host property)
+        TunnelError tun_err = tunnel_start(tun_port, relay_host, relay_host, relay_port,
+                certificate, private_key);
+        if (tun_err == TUN_ERR_LISTEN) {
             purple_notify_message(plugin, PURPLE_NOTIFY_MSG_WARNING, PACKAGE_TITLE,
                 _("Unable to create tunnel service. Is the configured port already used?"), NULL, NULL, NULL);
+        }
+        else if (tun_err == TUN_ERR_CERTIFICATE) {
+            purple_notify_message(plugin, PURPLE_NOTIFY_MSG_WARNING, PACKAGE_TITLE,
+                _("Unable to load certificate for Kontalk."), NULL, NULL, NULL);
         }
 
         return TRUE;
@@ -665,7 +686,11 @@ init_plugin(PurplePlugin *plugin)
     purple_prefs_add_none("/plugins/gtk/" PACKAGE_NAME);
 
     purple_prefs_add_string(SECRET_KEY_PREF, "");
-
+    purple_prefs_add_int(TUN_PORT_PREF, DEFAULT_TUNNEL_PORT);
+    purple_prefs_add_string(TUN_RELAY_HOST_PREF, DEFAULT_RELAY_HOST);
+    purple_prefs_add_int(TUN_RELAY_PORT_PREF, DEFAULT_RELAY_PORT);
+    purple_prefs_add_path(TUN_CERTIFICATE_PREF, "");
+    purple_prefs_add_path(TUN_PRIVATE_KEY_PREF, "");
 }
 
 PURPLE_INIT_PLUGIN(kontalk, init_plugin, info)

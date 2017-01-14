@@ -41,13 +41,18 @@
 #define TEXT_SSL_REPLY2 "<proceed xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>"
 #define TEXT_MECH_EXT   "<mechanism>EXTERNAL</mechanism>"
 #define TEXT_MECH_PLAIN "<mechanism>PLAIN</mechanism>"
+#define TEXT_PLAIN      "PLAIN"
+#define TEXT_EXTERNAL   "EXTERNAL"
 #define REGEX_AUTH      "<auth\\s*(.*)\\s*xmlns=['\"]urn:ietf:params:xml:ns:xmpp-sasl['\"](\\s+)mechanism=['\"]PLAIN['\"](.*)>(.*)</auth>$"
 
 static GSocketService *main_service = NULL;
 static gchar *relay_service_name = NULL;
 static gchar *relay_server_host = NULL;
 static guint16 relay_server_port;
+static GTlsCertificate *user_certificate = NULL;
 static GSocketClient *relay_client = NULL;
+// compiled at first usage
+static GRegex *auth_regex = NULL;
 
 // https://ubuntuforums.org/showthread.php?t=1309881&p=8216359#post8216359
 // adapted for GLib
@@ -71,8 +76,32 @@ str_replace(const gchar *orig_str, const gchar *old_token, const gchar *new_toke
 static gboolean
 regex_match(const gchar *buf, gsize len, const gchar *regex)
 {
-    // TODO
-    return FALSE;
+    if (auth_regex == NULL) {
+        GError *err = NULL;
+        auth_regex = g_regex_new(REGEX_AUTH, 0, 0, &err);
+        if (err != NULL) {
+            purple_debug_warning(PACKAGE_NAME, "error compiling regex: %s\n",
+                err->message);
+            g_error_free(err);
+            return FALSE;
+        }
+    }
+
+    GError *err = NULL;
+    GMatchInfo *match = NULL;
+    gboolean ret = g_regex_match_full(auth_regex, buf, len, 0, 0, &match, &err);
+
+    if (err != NULL) {
+        purple_debug_warning(PACKAGE_NAME, "error matching regex: %s\n",
+            err->message);
+        g_error_free(err);
+        return FALSE;
+    }
+    if (match != NULL) {
+        g_match_info_free(match);
+    }
+
+    return ret;
 }
 
 static void
@@ -158,7 +187,9 @@ client_read_cb(GInputStream *client_in, GAsyncResult *res, GSocketConnection *cl
     else {
         gchar *buf = g_object_get_data(G_OBJECT(client_conn), DATA_BUFFER_IN);
         if (buf != NULL) {
+#ifdef DEBUG
             purple_debug_misc(PACKAGE_NAME, "client: \"%.*s\"\n", (int) buf_len, buf);
+#endif
 
             // forward data to server
             GIOStream *tls_relay_conn = g_object_get_data(G_OBJECT(relay_conn), DATA_TLS);
@@ -168,8 +199,16 @@ client_read_cb(GInputStream *client_in, GAsyncResult *res, GSocketConnection *cl
 
             // check for PLAIN auth and replace it with EXTERNAL to fool the server
             if (regex_match(buf, buf_len, REGEX_AUTH)) {
-                // TODO replace PLAIN with EXTERNAL
+                // replace PLAIN with EXTERNAL
+                // we are doing string operation so it's better to stringify the buffer
+                // TODO this could be avoided by modifying str_replace to accept length
                 out = g_memdup(buf, buf_len);
+                gchar *buf_str = g_strndup(buf, buf_len);
+                gchar *buf_fixed = str_replace(buf_str, TEXT_PLAIN, TEXT_EXTERNAL);
+                g_free(buf_str);
+
+                out = buf_fixed;
+                buf_len = strlen(buf_fixed);
             }
             else {
                 out = g_memdup(buf, buf_len);
@@ -223,7 +262,6 @@ relay_tls_handshake_cb(GTlsClientConnection *tls_relay_conn, GAsyncResult *res, 
         relay_buf, BUF_LEN, G_PRIORITY_DEFAULT, NULL, (GAsyncReadyCallback) relay_read_cb, relay_conn);
 }
 
-
 static void
 start_tls(GSocketConnection *relay_conn)
 {
@@ -232,12 +270,16 @@ start_tls(GSocketConnection *relay_conn)
         (g_tls_client_connection_new(G_IO_STREAM(relay_conn), NULL, NULL));
     g_assert(tls_relay_conn != NULL);
 
-    // TODO maybe load client certificate now?
+    // load client certificate
+    g_tls_connection_set_certificate(G_TLS_CONNECTION(tls_relay_conn),
+        user_certificate);
 
     // store our TLS connection object
     g_object_set_data(G_OBJECT(relay_conn), DATA_TLS, tls_relay_conn);
 
     // start the handshake
+    g_tls_client_connection_set_validation_flags(tls_relay_conn,
+        G_TLS_CERTIFICATE_UNKNOWN_CA);
     g_tls_connection_handshake_async(G_TLS_CONNECTION(tls_relay_conn),
         G_PRIORITY_DEFAULT, NULL, (GAsyncReadyCallback) relay_tls_handshake_cb, relay_conn);
 }
@@ -295,7 +337,9 @@ relay_read_cb(GInputStream *relay_in, GAsyncResult *res, GSocketConnection *rela
     else {
         gchar *buf = g_object_get_data(G_OBJECT(relay_conn), DATA_BUFFER_IN);
         if (buf != NULL) {
+#ifdef DEBUG
             purple_debug_misc(PACKAGE_NAME, "server: \"%.*s\"\n", (int) buf_len, buf);
+#endif
 
             GTlsClientConnection *tls_relay_conn = g_object_get_data
                 (G_OBJECT(relay_conn), DATA_TLS);
@@ -459,9 +503,33 @@ socket_incoming(GSocketService *service, GSocketConnection *connection, GObject 
     return TRUE;
 }
 
-gboolean
-tunnel_start(guint16 listen_port, const gchar *service_name, const gchar *server_host, guint16 server_port)
+static gboolean
+load_client_certificate(const gchar *cert_file, const gchar *key_file, GError **error)
 {
+    user_certificate = g_tls_certificate_new_from_files(cert_file, key_file, error);
+    return user_certificate != NULL;
+}
+
+TunnelError
+tunnel_start(guint16 listen_port, const gchar *service_name,
+    const gchar *server_host, guint16 server_port,
+    const gchar* cert_file, const gchar *key_file)
+{
+    if (cert_file == NULL || key_file == NULL) {
+        // configuration error
+        return TUN_ERR_CONFIG;
+    }
+
+    GError *err = NULL;
+
+    // load certificate
+    if (!load_client_certificate(cert_file, key_file, &err)) {
+        purple_debug_warning(PACKAGE_NAME, "unable to load client certificate: %s\n",
+            err->message);
+        g_error_free(err);
+        return TUN_ERR_CERTIFICATE;
+    }
+
     main_service = g_socket_service_new();
     g_assert(main_service != NULL);
     relay_client = g_socket_client_new();
@@ -469,19 +537,18 @@ tunnel_start(guint16 listen_port, const gchar *service_name, const gchar *server
     // client event handler is global so connect it now
     g_signal_connect(G_OBJECT(relay_client), "event", G_CALLBACK(client_event), NULL);
 
-    GError *err = NULL;
     if (!g_socket_listener_add_inet_port(G_SOCKET_LISTENER(main_service), listen_port, NULL, &err)) {
         purple_debug_warning(PACKAGE_NAME, "unable to listen on port %d: %s\n",
             listen_port, err->message);
         g_error_free(err);
-        return FALSE;
+        return TUN_ERR_LISTEN;
     }
 
     g_signal_connect(G_OBJECT(main_service), "incoming", G_CALLBACK(socket_incoming), NULL);
     relay_service_name = g_strdup(service_name);
     relay_server_host = g_strdup(server_host);
     relay_server_port = server_port;
-    return TRUE;
+    return TUN_ERR_OK;
 }
 
 void

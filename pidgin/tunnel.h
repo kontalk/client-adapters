@@ -21,7 +21,18 @@
 
 #include <glib.h>
 
-gboolean tunnel_start(guint16 listen_port, const gchar *service_name, const gchar *server_host, guint16 server_port);
+typedef enum {
+    TUN_ERR_OK = 0,
+    TUN_ERR_LISTEN,
+    TUN_ERR_CERTIFICATE,
+    TUN_ERR_CONFIG,
+} TunnelError;
+
+TunnelError
+tunnel_start(guint16 listen_port, const gchar *service_name,
+    const gchar *server_host, guint16 server_port,
+    const gchar* cert_file, const gchar *key_file);
+
 
 void tunnel_stop();
 
