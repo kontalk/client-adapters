@@ -47,7 +47,7 @@ The second and more easy way relies on the sole plugin. The plugin itself is abl
 to create a tunnel internally much like the Python script does, but without starting
 any other program. Unfortunately, our dependency GLib is linked against GnuTLS which
 has issues with our login certificate. Therefore, you'll need to compile
-[another GLib module with OpenSSL support](https://github.com/daniele-athome/glib-openssl).  
+[another GLib module with OpenSSL support](https://github.com/GNOME/glib-openssl).  
 After that, it's just a matter of telling the plugin where to take the certificate
 and the private key, host and port to connect to and the port to listen for
 connections from Pidgin (pretty much what the Python script asks).
